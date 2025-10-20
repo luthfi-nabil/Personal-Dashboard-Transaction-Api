@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Result, Error as RusqliteError};
-use crate::models::earning::{Earning, EarningCategory};
+use crate::models::earning::{self, Earning, EarningCategory};
 use uuid::Uuid;
 
 pub fn create_earning_table(conn: &Connection) -> Result<()> {
@@ -59,7 +59,28 @@ pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
     Ok(earnings)
 }
 
-pub fn select_earning_categories(conn: &Connection) -> Result<Vec<EarningCategory>> {
+pub fn select_earning_category(conn: &Connection, earning_category_id: &String) -> Result<Vec<EarningCategory>> {
+    let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category where earning_category_id = ?1")?;
+    let category_iter = stmt.query_map([earning_category_id], |row| {
+        let earning_category_id_str: String = row.get(0)?; 
+        let earning_category_id_val = Uuid::parse_str(&earning_category_id_str)
+        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
+        Ok(EarningCategory {
+            earning_category_id: earning_category_id_val,
+            earning_category: row.get(1)?,
+            created_date: row.get(2)?,
+            created_by: row.get(3)?,
+        })
+    })?;
+
+    let mut categories = Vec::new();
+    for category in category_iter {
+        categories.push(category?);
+    }
+    Ok(categories)
+}
+
+pub fn select_all_earning_categories(conn: &Connection) -> Result<Vec<EarningCategory>> {
     let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category")?;
     let category_iter = stmt.query_map([], |row| {
         let earning_category_id_str: String = row.get(0)?; 
