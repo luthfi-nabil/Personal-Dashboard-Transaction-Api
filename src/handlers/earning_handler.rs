@@ -3,8 +3,34 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::models::earning::{Earning, EarningCategory};
-use crate::repository::earning_repository::{insert_earning, insert_earning_category};
+use crate::models::responses::{Response};
+use crate::repository::earning_repository::{select_earnings, select_earning_categories, insert_earning, insert_earning_category};
 use crate::helper::connection::{establish_connection};
+
+pub async fn get_all_earnings() -> HttpResponse {
+    let connection = establish_connection().expect("Failed to connect to database");
+    match select_earnings(&connection) {
+        Ok(earnings) => HttpResponse::Ok().json(earnings),
+        Err(_) => HttpResponse::InternalServerError().body("Error retrieving earnings"),
+    }
+}
+
+pub async fn get_all_earning_categories() -> HttpResponse {
+    let connection = establish_connection().expect("Failed to connect to database");
+    match select_earning_categories(&connection) {
+        Ok(categories) => HttpResponse::Ok().json(categories),
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                message: "Failed to retrieve earning categories".to_string(),
+                description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
+                .unwrap_or_else(|| err.to_string()),
+            };
+            HttpResponse::InternalServerError().json(response)
+        },
+    }
+}
+
 pub async fn post_earning(earning: web::Json<Earning>) -> HttpResponse {
 
     let connection = establish_connection().expect("Failed to connect to database");
@@ -26,7 +52,6 @@ pub async fn post_earning(earning: web::Json<Earning>) -> HttpResponse {
 }
 
 pub async fn post_earning_category(category: web::Json<EarningCategory>) -> HttpResponse {
-
     let connection = establish_connection().expect("Failed to connect to database");
     let new_category = EarningCategory {
         earning_category_id: Uuid::new_v4(),
