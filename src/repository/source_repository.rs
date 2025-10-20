@@ -19,15 +19,24 @@ pub fn create_source_table(conn: &Connection) -> Result<()> {
 pub fn select_source(conn: &Connection, source_id: &String) -> Result<Vec<Source>> {
     let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by FROM source where source_id = ?1")?;
     let source_iter = stmt.query_map([source_id], |row| {
-        let source_id_str: String = row.get(0)?; 
-        let source_id_val = Uuid::parse_str(&source_id_str)
-        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
-        let created_date_str: String = row.get(2)?; 
-        let created_date_val: DateTime<Utc> = created_date_str.parse().unwrap();
         Ok(Source {
-            source_id: source_id_val,
+            source_id: row
+            .get::<_, String>(0)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             source: row.get(1)?,
-            created_date: created_date_val,
+            created_date: row
+            .get::<_, String>(0)?
+            .parse::<DateTime<Utc>>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             created_by: row.get(3)?,
         })
     })?;
@@ -42,11 +51,15 @@ pub fn select_source(conn: &Connection, source_id: &String) -> Result<Vec<Source
 pub fn select_all_sources(conn: &Connection) -> Result<Vec<Source>> {
     let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by FROM source")?;
     let source_iter = stmt.query_map([], |row| {
-        let source_id_str: String = row.get(0)?; 
-        let source_id_val = Uuid::parse_str(&source_id_str)
-        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
         Ok(Source {
-            source_id: source_id_val,
+            source_id: row
+            .get::<_, String>(0)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             source: row.get(1)?,
             created_date: row.get(2)?,
             created_by: row.get(3)?,

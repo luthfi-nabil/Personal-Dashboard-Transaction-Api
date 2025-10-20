@@ -36,16 +36,34 @@ pub fn create_earning_category_table(conn: &Connection) -> Result<()> {
 pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
     let mut stmt = conn.prepare("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by FROM earning")?;
     let earning_iter = stmt.query_map([], |row| {
-        let earning_id_str: String = row.get(0)?; 
-        let earning_id_val = Uuid::parse_str(&earning_id_str)
-        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
         Ok(Earning {
-            earning_id: earning_id_val,
+            earning_id: row
+            .get::<_, String>(0)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             total_amount: row.get(1)?,
             description: row.get(2)?,
-            earning_category_id: row.get(3)?,
+            earning_category_id: row
+            .get::<_, String>(3)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             earning_category: row.get(4)?,
-            source_id: row.get(5)?,
+            source_id: row
+            .get::<_, String>(5)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             source: row.get(6)?,
             created_date: row.get(7)?,
             created_by: row.get(8)?,
@@ -62,11 +80,15 @@ pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
 pub fn select_earning_category(conn: &Connection, earning_category_id: &String) -> Result<Vec<EarningCategory>> {
     let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category where earning_category_id = ?1")?;
     let category_iter = stmt.query_map([earning_category_id], |row| {
-        let earning_category_id_str: String = row.get(0)?; 
-        let earning_category_id_val = Uuid::parse_str(&earning_category_id_str)
-        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
         Ok(EarningCategory {
-            earning_category_id: earning_category_id_val,
+            earning_category_id: row
+            .get::<_, String>(0)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             earning_category: row.get(1)?,
             created_date: row.get(2)?,
             created_by: row.get(3)?,
@@ -83,11 +105,15 @@ pub fn select_earning_category(conn: &Connection, earning_category_id: &String) 
 pub fn select_all_earning_categories(conn: &Connection) -> Result<Vec<EarningCategory>> {
     let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category")?;
     let category_iter = stmt.query_map([], |row| {
-        let earning_category_id_str: String = row.get(0)?; 
-        let earning_category_id_val = Uuid::parse_str(&earning_category_id_str)
-        .map_err(|e| RusqliteError::ToSqlConversionFailure(Box::new(e)))?;
         Ok(EarningCategory {
-            earning_category_id: earning_category_id_val,
+            earning_category_id: row
+            .get::<_, String>(0)?
+            .parse::<Uuid>()
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            ))?,
             earning_category: row.get(1)?,
             created_date: row.get(2)?,
             created_by: row.get(3)?,
