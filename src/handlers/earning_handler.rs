@@ -104,7 +104,7 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
         if _result.is_err() {
             response = Response {
                 status: "Error".to_string(),
-                message: "Failed to create earning".to_string(),
+                message: "Failed to create earning ".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 description: _result.err().unwrap().to_string(),
                 data: None,
@@ -117,7 +117,7 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-                message: "Failed to create earning".to_string(),
+                message: "Failed to create earning [Category]".to_string(),
                 description: _check_category.err().unwrap().to_string(),
                 data: None,
             };
@@ -129,13 +129,11 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
                 description: "Please create the earning category first.".to_string(),
                 data: None,
             };
-        }
-        
-        if _check_source.is_err() {
+        }else if _check_source.is_err() {
             response = Response {
                 status: "Error".to_string(),
-                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to get response".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
+                message: "Failed to create earning [Source]".to_string(),
                 description: _check_source.err().unwrap().to_string(),
                 data: None,
             };
