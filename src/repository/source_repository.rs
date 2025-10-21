@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result, Error as RusqliteError};
+use rusqlite::{Connection, Result};
 use crate::models::source::{Source};
 use uuid::Uuid;
 use chrono::{Utc, DateTime};

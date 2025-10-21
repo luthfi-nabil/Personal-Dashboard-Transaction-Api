@@ -2,30 +2,32 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::models::earning::{Earning, EarningCategory};
+use crate::models::spending::{Spending, SpendingCategory};
 use crate::models::responses::{Response};
-use crate::repository::earning_repository::{
-    select_earnings, 
-    select_all_earning_categories,
-    select_earning_category, 
-    insert_earning, 
-    insert_earning_category, 
-    delete_earning, 
-    delete_earning_category
+use crate::repository::spending_repository::{
+    select_spendings, 
+    select_all_spending_categories,
+    select_spending_category, 
+    insert_spending, 
+    insert_spending_category, 
+    delete_spending, 
+    delete_spending_category
 };
 use crate::repository::source_repository::{select_source};
 use crate::helper::connection::{establish_connection};
 
-pub async fn get_all_earnings_api() -> HttpResponse {
-    let connection = establish_connection().expect("Failed to connect to database");
-    match select_earnings(&connection) {
-        Ok(earnings) => {
+pub async fn get_all_spendings_api() -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
+    let _result = select_spendings(&conn);
+
+    match _result {
+        Ok(spendings) => {
             let response = Response {
                 status: "Success".to_string(),
                 code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
-                message: "Success get earning categories".to_string(),
+                message: "Success get spendings".to_string(),
                 description: "".to_string(),
-                data: Some(serde_json::to_value(earnings).unwrap()),
+                data: Some(serde_json::to_value(spendings).unwrap()),
             };
             HttpResponse::Ok().json(response)
         },
@@ -33,85 +35,96 @@ pub async fn get_all_earnings_api() -> HttpResponse {
             let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to retrieve earning categories".to_string(),
+                message: "Failed to retrieve spendings".to_string(),
                 description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
 }
 
-pub async fn get_all_earning_categories_api() -> HttpResponse {
-    let connection = establish_connection().expect("Failed to connect to database");
-    match select_all_earning_categories(&connection) {
+pub async fn get_all_spending_categories_api() -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
+    let _result = select_all_spending_categories(&conn);
+
+    match _result {
         Ok(categories) => {
             let response = Response {
                 status: "Success".to_string(),
                 code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
-                message: "Success get earning categories".to_string(),
+                message: "Success get spending categories".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(categories).unwrap()),
             };
             HttpResponse::Ok().json(response)
-        }
+        },
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to retrieve earning categories".to_string(),
+                message: "Failed to retrieve spending categories".to_string(),
                 description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
 }
 
-pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
+pub async fn post_spending_api(spending: web::Json<Spending>) -> HttpResponse {
     let connection = establish_connection().expect("Failed to connect to database");
-    let new_earning = Earning {
-        earning_id: Uuid::new_v4(),
-        total_amount: earning.total_amount,
-        description: earning.description.clone(),
-        earning_category_id: earning.earning_category_id,
-        earning_category: earning.earning_category.clone(),
-        source_id: earning.source_id,
-        source: earning.source.clone(),
+
+    let new_spending = Spending {
+        spending_id: Uuid::new_v4(),
+        total_amount: spending.total_amount,
+        description: spending.description.clone(),
+        spending_category_id: spending.spending_category_id,
+        spending_category: spending.spending_category.clone(),
+        source_id: spending.source_id,
+        source: spending.source.clone(),
         created_date: Utc::now(),
-        created_by: "User".to_string(),
+        created_by: spending.created_by.clone(),
     };
+
+    
     let mut response = Response {
         status: "Success".to_string(),
-        message: "Earning created successfully".to_string(),
+        message: "Spending created successfully".to_string(),
         code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
         description: "".to_string(),
         data: None,
     };
-    let _check_source = select_source(&connection, &new_earning.source_id.to_string());
-    let _check_category = select_earning_category(&connection, &new_earning.earning_category_id.to_string());
+    let _check_source = select_source(&connection, &new_spending.source_id.to_string());
+    let _check_category = select_spending_category(&connection, &new_spending.spending_category_id.to_string());
     if _check_source.is_ok() && _check_category.is_ok() && _check_category.as_ref().unwrap().len() > 0 && _check_source.as_ref().unwrap().len() > 0 {
-        let _result  = insert_earning(&connection, &new_earning);
-        
+        let _result  = insert_spending(&connection, &new_spending);
+        let mut response = Response {
+            status: "Success".to_string(),
+            message: "Spending created successfully".to_string(),
+            code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
+            description: "".to_string(),
+            data: None,
+        };
         if _result.is_err() {
             response = Response {
                 status: "Error".to_string(),
-                message: "Failed to create earning ".to_string(),
+                message: "Failed to create spending ".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 description: _result.err().unwrap().to_string(),
                 data: None,
             };
         }else{
-            response.data = Some(serde_json::to_value(new_earning).unwrap());
+            response.data = Some(serde_json::to_value(new_spending).unwrap());
         }
     }else{
         if _check_category.is_err() {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-                message: "Failed to create earning [Category]".to_string(),
+                message: "Failed to create spending [Category]".to_string(),
                 description: _check_category.err().unwrap().to_string(),
                 data: None,
             };
@@ -119,15 +132,15 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-                message: "Earning category not found".to_string(),
-                description: "Please create the earning category first.".to_string(),
+                message: "Spending category not found".to_string(),
+                description: "Please create the spending category first.".to_string(),
                 data: None,
             };
         }else if _check_source.is_err() {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-                message: "Failed to create earning [Source]".to_string(),
+                message: "Failed to create spending [Source]".to_string(),
                 description: _check_source.err().unwrap().to_string(),
                 data: None,
             };
@@ -146,52 +159,56 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
     }else{
         HttpResponse::BadRequest().json(response)
     }
-    
 }
 
-pub async fn post_earning_category_api(category: web::Json<EarningCategory>) -> HttpResponse {
-    let connection = establish_connection().expect("Failed to connect to database");
-    let new_category = EarningCategory {
-        earning_category_id: Uuid::new_v4(),
-        earning_category: category.earning_category.clone(),
+pub async fn post_spending_category_api(category: web::Json<SpendingCategory>) -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
+
+    let new_category = SpendingCategory {
+        spending_category_id: Uuid::new_v4(),
+        spending_category: category.spending_category.clone(),
         created_date: Utc::now(),
-        created_by: "User".to_string(),
+        created_by: category.created_by.clone(),
     };
-    
-    let _result  = insert_earning_category(&connection, &new_category);
 
-    let mut response = Response {
-        status: "Success".to_string(),
-        code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
-        message: "Earning category created successfully".to_string(),
-        description: "".to_string(),
-        data: None,
-    };
-    if _result.is_err() {
-        response = Response {
-            status: "Error".to_string(),
-            code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-            message: "Failed to create earning category".to_string(),
-            description: _result.err().unwrap().to_string(),
-            data: None,
-        };
-    }else{
-        response.data = Some(serde_json::to_value(new_category).unwrap());
-    }
-    HttpResponse::Created().json(response)
-}
+    let _result = insert_spending_category(&conn, &new_category);
 
-pub async fn delete_earning_api(earning_id: web::Path<String>) -> HttpResponse {
-    let connection = establish_connection().expect("Failed to connect to database");
-    let earning_id_str = earning_id.into_inner();
-    let result = delete_earning(&connection, &earning_id_str);
-
-    match result {
+    match _result {
         Ok(_) => {
             let response = Response {
                 status: "Success".to_string(),
-                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
-                message: "Success delete earning".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
+                message: "Spending category inserted successfully".to_string(),
+                description: "".to_string(),
+                data: Some(serde_json::to_value(new_category).unwrap()),
+            };
+            HttpResponse::Ok().json(response)
+        },
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
+                message: "Failed to insert spending category".to_string(),
+                description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
+                .unwrap_or_else(|| err.to_string()),
+                data: None,
+            };
+            HttpResponse::InternalServerError().json(response)
+        }
+    }
+}
+
+pub async fn delete_spending_api(spending_id: web::Path<String>) -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
+
+    let _result = delete_spending(&conn, &spending_id.into_inner());
+
+    match _result {
+        Ok(_) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_DELETION_SUCCESS,
+                message: "Spending deleted successfully".to_string(),
                 description: "".to_string(),
                 data: None,
             };
@@ -200,28 +217,28 @@ pub async fn delete_earning_api(earning_id: web::Path<String>) -> HttpResponse {
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
-                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to delete earning".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_DELETION_FAILED,
+                message: "Failed to delete spending".to_string(),
                 description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
 }
 
-pub async fn delete_earning_category_api(category_id: web::Path<String>) -> HttpResponse {
-    let connection = establish_connection().expect("Failed to connect to database");
-    let category_id_str = category_id.into_inner();
-    let result = delete_earning_category(&connection, &category_id_str);
+pub async fn delete_spending_category_api(category_id: web::Path<String>) -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
 
-    match result {
+    let _result = delete_spending_category(&conn, &category_id.into_inner());
+
+    match _result {
         Ok(_) => {
             let response = Response {
                 status: "Success".to_string(),
-                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
-                message: "Success delete earning category".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_DELETION_SUCCESS,
+                message: "Spending category deleted successfully".to_string(),
                 description: "".to_string(),
                 data: None,
             };
@@ -230,17 +247,13 @@ pub async fn delete_earning_category_api(category_id: web::Path<String>) -> Http
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
-                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to delete earning category".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_DELETION_FAILED,
+                message: "Failed to delete spending category".to_string(),
                 description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
-}
-
-pub async fn health_check() -> HttpResponse {
-    HttpResponse::Ok().json("API is up and running!")
 }
