@@ -81,7 +81,8 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
         source_id: earning.source_id,
         source: earning.source.clone(),
         created_date: Utc::now(),
-        created_by: "User".to_string(),
+        created_by: earning.created_by.clone(),
+        is_active: true
     };
     let mut response = Response {
         status: "Success".to_string(),
@@ -155,7 +156,8 @@ pub async fn post_earning_category_api(category: web::Json<EarningCategory>) -> 
         earning_category_id: Uuid::new_v4(),
         earning_category: category.earning_category.clone(),
         created_date: Utc::now(),
-        created_by: "User".to_string(),
+        created_by: category.created_by.clone(),
+        is_active: true
     };
     
     let _result  = insert_earning_category(&connection, &new_category);
@@ -167,18 +169,35 @@ pub async fn post_earning_category_api(category: web::Json<EarningCategory>) -> 
         description: "".to_string(),
         data: None,
     };
-    if _result.is_err() {
-        response = Response {
-            status: "Error".to_string(),
-            code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
-            message: "Failed to create earning category".to_string(),
-            description: _result.err().unwrap().to_string(),
-            data: None,
-        };
-    }else{
-        response.data = Some(serde_json::to_value(new_category).unwrap());
+    match _result {
+        Ok(_) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
+                message: "Spending category inserted successfully".to_string(),
+                description: "".to_string(),
+                data: Some(serde_json::to_value(new_category).unwrap()),
+            };
+            HttpResponse::Ok().json(response)
+        },
+        Err(err) => {
+            let mut response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
+                message: "Failed to insert earning category".to_string(),
+                description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
+                .unwrap_or_else(|| err.to_string()),
+                data: None,
+            };
+            if err.sqlite_error().map_or(false, |e| e.code == rusqlite::ErrorCode::ConstraintViolation) {
+                response.description = "Earning category already exists".to_string();
+                return HttpResponse::BadRequest().json(response);
+            }else{
+                return HttpResponse::InternalServerError().json(response)
+            }
+        }
     }
-    HttpResponse::Created().json(response)
+    
 }
 
 pub async fn delete_earning_api(earning_id: web::Path<String>) -> HttpResponse {

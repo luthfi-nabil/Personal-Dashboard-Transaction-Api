@@ -10,5 +10,7 @@ pub struct Source {
     #[serde(skip_deserializing)]
     pub created_date: DateTime<Utc>,
     #[serde(skip_deserializing)]
-    pub created_by: String
+    pub created_by: String,
+    #[serde(skip_deserializing)]
+    pub is_active: bool
 }

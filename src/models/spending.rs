@@ -15,7 +15,9 @@ pub struct Spending {
     #[serde(skip_deserializing)]
     pub created_date: DateTime<Utc>,
     #[serde(skip_deserializing)]
-    pub created_by: String
+    pub created_by: String,
+    #[serde(skip_deserializing)]
+    pub is_active: bool
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,5 +28,7 @@ pub struct SpendingCategory {
     #[serde(skip_deserializing)]
     pub created_date: DateTime<Utc>,
     #[serde(skip_deserializing)]
-    pub created_by: String
+    pub created_by: String,
+    #[serde(skip_deserializing)]
+    pub is_active: bool
 }

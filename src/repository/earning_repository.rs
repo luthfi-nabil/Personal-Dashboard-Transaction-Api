@@ -14,7 +14,8 @@ pub fn create_earning_table(conn: &Connection) -> Result<()> {
             source_id TEXT NOT NULL,
             source TEXT NOT NULL,
             created_date TEXT NOT NULL,
-            created_by TEXT NOT NULL
+            created_by TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1
         )",
         [],
     )?;
@@ -25,9 +26,10 @@ pub fn create_earning_category_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS earning_category (
             earning_category_id TEXT PRIMARY KEY,
-            earning_category TEXT NOT NULL,
+            earning_category TEXT NOT NULL UNIQUE,
             created_date TEXT NOT NULL,
-            created_by TEXT NOT NULL
+            created_by TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1
         )",
         [],
     )?;
@@ -35,7 +37,7 @@ pub fn create_earning_category_table(conn: &Connection) -> Result<()> {
 }
 
 pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
-    let mut stmt = conn.prepare("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by FROM earning")?;
+    let mut stmt = conn.prepare("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by FROM earning where is_active = 1")?;
     let earning_iter = stmt.query_map([], |row| {
         Ok(Earning {
             earning_id: row
@@ -58,6 +60,7 @@ pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<DateTime<Utc>>().ok() })
                 .unwrap_or_else(DateTime::default),
             created_by: row.get(8)?,
+            is_active: row.get(9)?
         })
     })?;
 
@@ -69,7 +72,7 @@ pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
 }
 
 pub fn select_earning_category(conn: &Connection, earning_category_id: &String) -> Result<Vec<EarningCategory>> {
-    let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category where earning_category_id = ?1")?;
+    let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by, is_active FROM earning_category where earning_category_id = ?1 and is_active = 1")?;
     let category_iter = stmt.query_map([earning_category_id], |row| {
         let result_category = EarningCategory {
             earning_category_id: row
@@ -81,6 +84,7 @@ pub fn select_earning_category(conn: &Connection, earning_category_id: &String) 
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<DateTime<Utc>>().ok() })
                 .unwrap_or_else(DateTime::default),
             created_by: row.get(3)?,
+            is_active: row.get(4)?
         };
         return Ok(result_category);
     })?;
@@ -89,7 +93,7 @@ pub fn select_earning_category(conn: &Connection, earning_category_id: &String) 
 }
 
 pub fn select_all_earning_categories(conn: &Connection) -> Result<Vec<EarningCategory>> {
-    let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by FROM earning_category")?;
+    let mut stmt = conn.prepare("SELECT earning_category_id, earning_category, created_date, created_by, is_active FROM earning_category where is_active = 1")?;
     let category_iter = stmt.query_map([], |row| {
         
         Ok(EarningCategory {
@@ -100,6 +104,7 @@ pub fn select_all_earning_categories(conn: &Connection) -> Result<Vec<EarningCat
             earning_category: row.get(1)?,
             created_date: row.get(2)?,
             created_by: row.get(3)?,
+            is_active: row.get(4)?
         })
     })?;
 
@@ -112,8 +117,8 @@ pub fn select_all_earning_categories(conn: &Connection) -> Result<Vec<EarningCat
 
 pub fn insert_earning(conn: &Connection, earning: &Earning) -> Result<()> {
     conn.execute(
-        "INSERT INTO earning (earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO earning (earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by, is_active)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         [
             earning.earning_id.to_string(),
             earning.total_amount.to_string(),
@@ -124,6 +129,7 @@ pub fn insert_earning(conn: &Connection, earning: &Earning) -> Result<()> {
             earning.source.to_string(),
             earning.created_date.to_rfc3339(),
             earning.created_by.to_string(),
+            earning.is_active.to_string(),
         ],
     )?;
     Ok(())
@@ -132,12 +138,13 @@ pub fn insert_earning(conn: &Connection, earning: &Earning) -> Result<()> {
 pub fn insert_earning_category(conn: &Connection, category: &EarningCategory) -> Result<()> {
     conn.execute(
         "INSERT INTO earning_category (earning_category_id, earning_category, created_date, created_by)
-         VALUES (?1, ?2, ?3, ?4)",
+         VALUES (?1, ?2, ?3, ?4, ?5)",
         [
             category.earning_category_id.to_string(),
             category.earning_category.to_string(),
             category.created_date.to_rfc3339(),
             category.created_by.to_string(),
+            category.is_active.to_string(),
         ],
     )?;
     Ok(())

@@ -87,6 +87,7 @@ pub async fn post_spending_api(spending: web::Json<Spending>) -> HttpResponse {
         source: spending.source.clone(),
         created_date: Utc::now(),
         created_by: spending.created_by.clone(),
+        is_active: true
     };
 
     
@@ -169,6 +170,7 @@ pub async fn post_spending_category_api(category: web::Json<SpendingCategory>) -
         spending_category: category.spending_category.clone(),
         created_date: Utc::now(),
         created_by: category.created_by.clone(),
+        is_active: true
     };
 
     let _result = insert_spending_category(&conn, &new_category);
@@ -185,7 +187,7 @@ pub async fn post_spending_category_api(category: web::Json<SpendingCategory>) -
             HttpResponse::Ok().json(response)
         },
         Err(err) => {
-            let response = Response {
+            let mut response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to insert spending category".to_string(),
@@ -193,7 +195,12 @@ pub async fn post_spending_category_api(category: web::Json<SpendingCategory>) -
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
-            HttpResponse::InternalServerError().json(response)
+            if err.sqlite_error().map_or(false, |e| e.code == rusqlite::ErrorCode::ConstraintViolation) {
+                response.description = "Spending category already exists".to_string();
+                return HttpResponse::BadRequest().json(response);
+            }else{
+                return HttpResponse::InternalServerError().json(response)
+            }
         }
     }
 }

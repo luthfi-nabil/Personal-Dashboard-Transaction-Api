@@ -44,6 +44,7 @@ pub async fn post_source_api(source: web::Json<Source>) -> HttpResponse {
         source: source.source.clone(),
         created_date: Utc::now(),
         created_by: source.created_by.clone(),
+        is_active: true
     };
 
     let _result = insert_source(&conn, &new_source);
@@ -60,7 +61,7 @@ pub async fn post_source_api(source: web::Json<Source>) -> HttpResponse {
             HttpResponse::Ok().json(response)
         },
         Err(err) => {
-            let response = Response {
+            let mut response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to insert source".to_string(),
@@ -68,7 +69,13 @@ pub async fn post_source_api(source: web::Json<Source>) -> HttpResponse {
                 .unwrap_or_else(|| err.to_string()),
                 data: None,
             };
-            HttpResponse::InternalServerError().json(response)
+            if err.sqlite_error().map_or(false, |e| e.code == rusqlite::ErrorCode::ConstraintViolation) {
+                response.description = "Source already exists".to_string();
+                return HttpResponse::BadRequest().json(response);
+            }else{
+                HttpResponse::InternalServerError().json(response)
+            }
+            
         }
     }
 }
