@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::models::source::{Source};
 use crate::models::responses::{Response};
-use crate::repository::source_repository::{select_source, select_all_sources, insert_source};
+use crate::repository::source_repository::{select_source, select_all_sources, insert_source, delete_source};
 use crate::helper::connection::{establish_connection};
 
 pub async fn get_all_sources_api() -> HttpResponse {
@@ -44,7 +44,7 @@ pub async fn post_source_api(source: web::Json<Source>) -> HttpResponse {
         source: source.source.clone(),
         created_date: Utc::now(),
         created_by: source.created_by.clone(),
-        is_active: true
+        is_active: 1
     };
 
     let _result = insert_source(&conn, &new_source);
@@ -76,6 +76,36 @@ pub async fn post_source_api(source: web::Json<Source>) -> HttpResponse {
                 HttpResponse::InternalServerError().json(response)
             }
             
+        }
+    }
+}
+
+pub async fn delete_source_api(path: web::Path<String>) -> HttpResponse {
+    let conn = establish_connection().expect("Failed to connect to database");
+    let source = path.into_inner();
+    let _result = delete_source(&conn, &source);
+
+    match _result {
+        Ok(_) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_DELETION_SUCCESS,
+                message: "Source deleted successfully".to_string(),
+                description: "".to_string(),
+                data: None,
+            };
+            HttpResponse::Ok().json(response)
+        },
+        Err(err) => {
+            let mut response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_DELETION_FAILED,
+                message: "Failed to delete source".to_string(),
+                description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
+                .unwrap_or_else(|| err.to_string()),
+                data: None,
+            };
+            HttpResponse::InternalServerError().json(response)
         }
     }
 }

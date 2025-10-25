@@ -12,5 +12,5 @@ pub struct Source {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: bool
+    pub is_active: i32
 }

@@ -17,7 +17,7 @@ pub struct Earning {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: bool
+    pub is_active: i32
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,5 +30,5 @@ pub struct EarningCategory {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: bool
+    pub is_active: i32
 }

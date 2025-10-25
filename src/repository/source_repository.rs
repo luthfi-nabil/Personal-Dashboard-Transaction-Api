@@ -40,7 +40,7 @@ pub fn select_source(conn: &Connection, source_id: &String) -> Result<Vec<Source
 }
 
 pub fn select_all_sources(conn: &Connection) -> Result<Vec<Source>> {
-    let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by FROM source where is_active = 1")?;
+    let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by, is_active FROM source")?;
     let source_iter = stmt.query_map([], |row| {
         Ok(Source {
             source_id: row
@@ -56,7 +56,6 @@ pub fn select_all_sources(conn: &Connection) -> Result<Vec<Source>> {
             is_active:row.get(4)?
         })
     })?;
-
     Ok(source_iter.filter_map(Result::ok).collect())
 }
 

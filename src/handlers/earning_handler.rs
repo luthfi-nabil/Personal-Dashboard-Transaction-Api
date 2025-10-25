@@ -82,7 +82,7 @@ pub async fn post_earning_api(earning: web::Json<Earning>) -> HttpResponse {
         source: earning.source.clone(),
         created_date: Utc::now(),
         created_by: earning.created_by.clone(),
-        is_active: true
+        is_active: 1
     };
     let mut response = Response {
         status: "Success".to_string(),
@@ -157,7 +157,7 @@ pub async fn post_earning_category_api(category: web::Json<EarningCategory>) -> 
         earning_category: category.earning_category.clone(),
         created_date: Utc::now(),
         created_by: category.created_by.clone(),
-        is_active: true
+        is_active: 1
     };
     
     let _result  = insert_earning_category(&connection, &new_category);

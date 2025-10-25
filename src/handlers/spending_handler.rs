@@ -87,7 +87,7 @@ pub async fn post_spending_api(spending: web::Json<Spending>) -> HttpResponse {
         source: spending.source.clone(),
         created_date: Utc::now(),
         created_by: spending.created_by.clone(),
-        is_active: true
+        is_active: 1
     };
 
     
@@ -170,7 +170,7 @@ pub async fn post_spending_category_api(category: web::Json<SpendingCategory>) -
         spending_category: category.spending_category.clone(),
         created_date: Utc::now(),
         created_by: category.created_by.clone(),
-        is_active: true
+        is_active: 1
     };
 
     let _result = insert_spending_category(&conn, &new_category);

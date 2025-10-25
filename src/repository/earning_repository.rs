@@ -137,7 +137,7 @@ pub fn insert_earning(conn: &Connection, earning: &Earning) -> Result<()> {
 
 pub fn insert_earning_category(conn: &Connection, category: &EarningCategory) -> Result<()> {
     conn.execute(
-        "INSERT INTO earning_category (earning_category_id, earning_category, created_date, created_by)
+        "INSERT INTO earning_category (earning_category_id, earning_category, created_date, created_by, is_active)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         [
             category.earning_category_id.to_string(),

@@ -117,7 +117,7 @@ pub fn insert_spending_category(conn: &Connection, category: &SpendingCategory) 
 
 pub fn insert_spending(conn: &Connection, spending: &Spending) -> Result<()> {
     conn.execute(
-        "INSERT INTO spending (spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by)
+        "INSERT INTO spending (spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by, is_active)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         [
             spending.spending_id.to_string(),
