@@ -158,10 +158,10 @@ pub fn delete_earning(conn: &Connection, earning_id: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_earning_category(conn: &Connection, category_id: &str) -> Result<()> {
+pub fn delete_earning_category(conn: &Connection, category: &str) -> Result<()> {
     conn.execute(
-        "DELETE FROM earning_category WHERE earning_category_id = ?1",
-        [category_id],
+        "UPDATE earning_category SET is_active = 0 WHERE earning_category = ?1",
+        [category],
     )?;
     Ok(())
 }
