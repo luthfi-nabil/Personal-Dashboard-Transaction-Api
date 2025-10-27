@@ -80,15 +80,15 @@ pub fn select_spending_category(conn: &Connection, category_id: &String) -> Resu
     Ok(category_iter.filter_map(Result::ok).collect())
 }
 
-pub fn select_all_spending_categories(conn: &Connection) -> Result<Vec<Source>> {
+pub fn select_all_spending_categories(conn: &Connection) -> Result<Vec<SpendingCategory>> {
     let mut stmt = conn.prepare("SELECT spending_category_id, spending_category, created_date, created_by, is_active FROM spending_category where is_active = 1")?;
     let category_iter = stmt.query_map([], |row| {
-        Ok(Source {
-            source_id: row
+        Ok(SpendingCategory {
+            spending_category_id: row
             .get::<_, Option<String>>(0)?
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<Uuid>().ok() })
                 .unwrap_or_else(Uuid::nil),
-            source: row.get(1)?,
+            spending_category: row.get(1)?,
             created_date: row
             .get::<_, Option<String>>(2)?
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<DateTime<Utc>>().ok() })

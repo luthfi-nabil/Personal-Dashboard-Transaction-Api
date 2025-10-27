@@ -47,7 +47,7 @@ pub async fn get_all_spendings_api() -> HttpResponse {
 
 pub async fn get_all_spending_categories_api() -> HttpResponse {
     let conn = establish_connection().expect("Failed to connect to database");
-    let _result = select_all_spending_categories(&conn);
+    let _result: Result<Vec<crate::models::spending::SpendingCategory>, rusqlite::Error> = select_all_spending_categories(&conn);
 
     match _result {
         Ok(categories) => {
