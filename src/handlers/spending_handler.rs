@@ -235,10 +235,10 @@ pub async fn delete_spending_api(spending_id: web::Path<String>) -> HttpResponse
     }
 }
 
-pub async fn delete_spending_category_api(category_id: web::Path<String>) -> HttpResponse {
+pub async fn delete_spending_category_api(path: web::Path<String>) -> HttpResponse {
     let conn = establish_connection().expect("Failed to connect to database");
-
-    let _result = delete_spending_category(&conn, &category_id.into_inner());
+    let spending_category = path.into_inner();
+    let _result = delete_spending_category(&conn, &spending_category);
 
     match _result {
         Ok(_) => {

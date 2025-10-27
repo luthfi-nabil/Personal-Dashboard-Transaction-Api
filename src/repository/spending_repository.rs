@@ -81,7 +81,7 @@ pub fn select_spending_category(conn: &Connection, category_id: &String) -> Resu
 }
 
 pub fn select_all_spending_categories(conn: &Connection) -> Result<Vec<Source>> {
-    let mut stmt = conn.prepare("SELECT spending_category_id, spending_category, created_date, created_by, is_active FROM spending_category and is_active = 1")?;
+    let mut stmt = conn.prepare("SELECT spending_category_id, spending_category, created_date, created_by, is_active FROM spending_category where is_active = 1")?;
     let category_iter = stmt.query_map([], |row| {
         Ok(Source {
             source_id: row
@@ -135,10 +135,10 @@ pub fn insert_spending(conn: &Connection, spending: &Spending) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_spending_category(conn: &Connection, category_id: &String) -> Result<()> {
+pub fn delete_spending_category(conn: &Connection, category: &String) -> Result<()> {
     conn.execute(
-        "UPDATE spending_category SET is_active = 0 WHERE spending_category_id = ?1",
-        [category_id],
+        "UPDATE spending_category SET is_active = 0 WHERE spending_category = ?1",
+        [category],
     )?;
     Ok(())
 }
