@@ -18,7 +18,7 @@ pub fn create_source_table(conn: &Connection) -> Result<()> {
 }
 
 pub fn select_source(conn: &Connection, source_id: &String) -> Result<Vec<Source>> {
-    let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by FROM source where source_id = ?1 and is_active = 1")?;
+    let mut stmt = conn.prepare("SELECT source_id, source, created_date, created_by, is_active FROM source where source_id = ?1 and is_active = 1")?;
     let source_iter = stmt.query_map([source_id], |row| {
         let result_source = Source {
             source_id: row
