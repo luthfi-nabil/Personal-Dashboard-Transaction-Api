@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::models::earning::{Earning, EarningCategory};
+use crate::models::earning::{Earning, EarningCategory, EarningParam};
 use crate::models::responses::{Response};
 use crate::repository::earning_repository::{
     select_earnings, 
@@ -16,14 +16,14 @@ use crate::repository::earning_repository::{
 use crate::repository::source_repository::{select_source};
 use crate::helper::connection::{establish_connection};
 
-pub async fn get_all_earnings_api() -> HttpResponse {
+pub async fn get_all_earnings_api(query: web::Query<EarningParam>) -> HttpResponse {
     let connection = establish_connection().expect("Failed to connect to database");
-    match select_earnings(&connection) {
+    match select_earnings(&connection, &query) {
         Ok(earnings) => {
             let response = Response {
                 status: "Success".to_string(),
                 code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
-                message: "Success get earning categories".to_string(),
+                message: "Success get earnings".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(earnings).unwrap()),
             };
@@ -33,7 +33,7 @@ pub async fn get_all_earnings_api() -> HttpResponse {
             let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
-                message: "Failed to retrieve earning categories".to_string(),
+                message: "Failed to retrieve earnings".to_string(),
                 description: err.sqlite_error().map(|e| format!("{:?}", e)) // or e.to_string() if available
                 .unwrap_or_else(|| err.to_string()),
                 data: None,

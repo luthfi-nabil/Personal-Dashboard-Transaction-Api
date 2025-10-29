@@ -1,6 +1,6 @@
 use rusqlite::{Connection, Result, Error as RusqliteError};
 use chrono::{Utc, DateTime};
-use crate::models::earning::{self, Earning, EarningCategory};
+use crate::models::earning::{self, Earning, EarningCategory, EarningParam};
 use uuid::Uuid;
 
 pub fn create_earning_table(conn: &Connection) -> Result<()> {
@@ -36,8 +36,39 @@ pub fn create_earning_category_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
-    let mut stmt = conn.prepare("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by FROM earning where is_active = 1")?;
+pub fn select_earnings(conn: &Connection, param: &EarningParam) -> Result<Vec<Earning>> {
+    let mut query = String::from("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by, is_active FROM earning");
+    query.push_str(" where is_active = 1");
+    match &param.description {
+        Some(val)=>query.push_str(&format!(" and description like '%{}%'", val)),
+        None => {}
+    }
+
+    match &param.earning_category {
+        Some(val)=>query.push_str(&format!(" and upper(earning_category) = upper('{}')", val)),
+        None => {}
+    }
+
+    match &param.source {
+        Some(val)=>query.push_str(&format!(" and upper(source) = upper('{}')", val)),
+        None => {}
+    }
+
+    match &param.earning_category_id {
+        Some(val)=>query.push_str(&format!(" and earning_category_id = '{}'", val)),
+        None => {}
+    }
+
+    match &param.source_id {
+        Some(val)=>query.push_str(&format!(" and source_id = '{}'", val)),
+        None => {}
+    }
+    
+    match &param.month {
+        Some(val)=>query.push_str(&format!(" and CAST(strftime('%m', created_date) AS INTEGER) = {}", val)),
+        None => {}
+    }
+    let mut stmt = conn.prepare(&query)?;
     let earning_iter = stmt.query_map([], |row| {
         Ok(Earning {
             earning_id: row
@@ -56,7 +87,7 @@ pub fn select_earnings(conn: &Connection) -> Result<Vec<Earning>> {
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<Uuid>().ok() })
                 .unwrap_or_else(Uuid::nil),
             source: row.get(6)?,
-            created_date: row.get::<_, Option<String>>(2)?
+            created_date: row.get::<_, Option<String>>(7)?
                 .and_then(|s| if s.is_empty() { None } else { s.parse::<DateTime<Utc>>().ok() })
                 .unwrap_or_else(DateTime::default),
             created_by: row.get(8)?,

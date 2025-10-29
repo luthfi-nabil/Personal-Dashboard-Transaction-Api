@@ -21,6 +21,18 @@ pub struct Earning {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct EarningParam {
+    pub description: Option<String>,
+    pub earning_category_id: Option<Uuid>,
+    pub earning_category: Option<String>,
+    pub source_id: Option<Uuid>,
+    pub source: Option<String>,
+    pub month: Option<i32>,
+    pub year: Option<i32>,
+    pub day: Option<i32>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EarningCategory {
     #[serde(skip_deserializing)]
     pub earning_category_id: Uuid,
