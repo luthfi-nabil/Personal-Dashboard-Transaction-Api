@@ -21,6 +21,18 @@ pub struct Spending {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct SpendingParam {
+    pub description: Option<String>,
+    pub spending_category_id: Option<Uuid>,
+    pub spending_category: Option<String>,
+    pub source_id: Option<Uuid>,
+    pub source: Option<String>,
+    pub month: Option<i32>,
+    pub year: Option<i32>,
+    pub day: Option<i32>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SpendingCategory {
     #[serde(skip_deserializing)]
     pub spending_category_id: Uuid,

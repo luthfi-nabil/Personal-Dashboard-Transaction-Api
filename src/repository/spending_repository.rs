@@ -1,6 +1,6 @@
 use rusqlite::{Connection, Result};
 use crate::models::source::{Source};
-use crate::models::spending::{Spending, SpendingCategory};
+use crate::models::spending::{Spending, SpendingCategory, SpendingParam};
 use uuid::Uuid;
 use chrono::{Utc, DateTime};
 
@@ -80,8 +80,39 @@ pub fn select_spending_category(conn: &Connection, category_id: &String) -> Resu
     Ok(category_iter.filter_map(Result::ok).collect())
 }
 
-pub fn select_all_spending_categories(conn: &Connection) -> Result<Vec<SpendingCategory>> {
-    let mut stmt = conn.prepare("SELECT spending_category_id, spending_category, created_date, created_by, is_active FROM spending_category where is_active = 1")?;
+pub fn select_all_spending_categories(conn: &Connection, param: &SpendingParam) -> Result<Vec<SpendingCategory>> {
+    let mut query = String::from("SELECT spending_category_id, spending_category, created_date, created_by, is_active FROM spending_category");
+    query.push_str(" where is_active = 1");
+    match &param.description {
+        Some(val)=>query.push_str(&format!(" and description like '%{}%'", val)),
+        None => {}
+    }
+
+    match &param.spending_category {
+        Some(val)=>query.push_str(&format!(" and upper(earning_category) = upper('{}')", val)),
+        None => {}
+    }
+
+    match &param.source {
+        Some(val)=>query.push_str(&format!(" and upper(source) = upper('{}')", val)),
+        None => {}
+    }
+
+    match &param.spending_category_id {
+        Some(val)=>query.push_str(&format!(" and earning_category_id = '{}'", val)),
+        None => {}
+    }
+
+    match &param.source_id {
+        Some(val)=>query.push_str(&format!(" and source_id = '{}'", val)),
+        None => {}
+    }
+    
+    match &param.month {
+        Some(val)=>query.push_str(&format!(" and CAST(strftime('%m', created_date) AS INTEGER) = {}", val)),
+        None => {}
+    }
+    let mut stmt = conn.prepare(&query)?;
     let category_iter = stmt.query_map([], |row| {
         Ok(SpendingCategory {
             spending_category_id: row
