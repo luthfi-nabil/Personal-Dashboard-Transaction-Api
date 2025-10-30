@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::models::spending::{Spending, SpendingCategory};
+use crate::models::spending::{Spending, SpendingCategory, SpendingParam};
 use crate::models::responses::{Response};
 use crate::repository::spending_repository::{
     select_spendings, 
@@ -45,9 +45,9 @@ pub async fn get_all_spendings_api() -> HttpResponse {
     }
 }
 
-pub async fn get_all_spending_categories_api() -> HttpResponse {
+pub async fn get_all_spending_categories_api(query: web::Query<SpendingParam>) -> HttpResponse {
     let conn = establish_connection().expect("Failed to connect to database");
-    let _result: Result<Vec<crate::models::spending::SpendingCategory>, rusqlite::Error> = select_all_spending_categories(&conn);
+    let _result: Result<Vec<crate::models::spending::SpendingCategory>, rusqlite::Error> = select_all_spending_categories(&conn, &query);
 
     match _result {
         Ok(categories) => {
