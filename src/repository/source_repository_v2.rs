@@ -48,7 +48,12 @@ pub fn select_source(conn: &mut PooledConn, source_id: &String) -> Result<Vec<So
     params!{
         "source_id"=>source_id
     },
-    |(source_id, source, created_date, created_by, is_active)|{
+    |(source_id, source, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)|{
+        let source_id = Uuid::parse_str(&source_id)
+                .unwrap_or_else(|_| Uuid::nil());
+
+        
+
         SourceV2 { source_id, source, created_date, created_by, is_active}
     })?;
     
