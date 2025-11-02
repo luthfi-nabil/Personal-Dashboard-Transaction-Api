@@ -1,7 +1,8 @@
-use mysql::*;
+use mysql::{Result, PooledConn, params, Error as MysqlError};
 use mysql::prelude::*;
 use std::collections::HashMap;
 use chrono::{Utc, DateTime, NaiveDateTime};
+use crate::models::responses::{DatabaseResult};
 use crate::models::earning::{self,Earning, EarningV2, EarningCategory, EarningCategoryV2,EarningParam};
 use uuid::Uuid;
 use std::error::Error;
@@ -172,7 +173,7 @@ pub fn insert_earning(conn: &mut PooledConn, earning: &EarningV2) -> Result<(), 
 }
 
 /// ✅ Insert a new earning category
-pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategoryV2) -> Result<(), Box<dyn Error>> {
+pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategoryV2) -> Result<DatabaseResult, Box<dyn Error>> {
     let query = r#"
         INSERT INTO earning_category 
         (earning_category_id, earning_category, created_date, created_by, is_active)
@@ -180,7 +181,7 @@ pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategory
         (:id, :cat, :created, :by, :active)
     "#;
 
-    conn.exec_drop(
+    let result = conn.exec_drop(
         query,
         params! {
             "id" => category.earning_category_id.to_string(),
@@ -189,9 +190,19 @@ pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategory
             "by" => &category.created_by,
             "active" => category.is_active,
         },
-    )?;
+    );
+    match result {
+        Ok(_) => Ok(DatabaseResult::Inserted),
 
-    Ok(())
+        Err(MysqlError::MySqlError(ref e)) => match e.code {
+            1062u16 => {
+                Ok(DatabaseResult::Duplicate)
+            }
+            _ => Err(Box::new(MysqlError::MySqlError(e.clone()))),
+        },
+
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
 /// ✅ Delete an earning permanently

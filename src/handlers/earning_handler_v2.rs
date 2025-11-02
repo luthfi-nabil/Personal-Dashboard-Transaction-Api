@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc, Local};
 use uuid::Uuid;
 use crate::models::source::{SourceV2};
 use crate::models::earning::{EarningV2, EarningParam, EarningCategoryV2};
-use crate::models::responses::{Response};
+use crate::models::responses::{Response, DatabaseResult};
 use crate::helper::connection::{establish_connection_v2};
 use crate::repository::source_repository_v2::{select_source};
 use crate::repository::earning_repository_v2::{select_all_earning_categories, insert_earning, select_earnings, select_earning_category, delete_earning_category, insert_earning_category};
@@ -165,15 +165,28 @@ pub async fn post_earning_category_api_v2(category: web::Json<EarningCategoryV2>
         data: None,
     };
     match _result {
-        Ok(_) => {
-            let response = Response {
-                status: "Success".to_string(),
-                code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
-                message: "Spending category inserted successfully".to_string(),
-                description: "".to_string(),
-                data: Some(serde_json::to_value(new_category).unwrap()),
-            };
-            HttpResponse::Ok().json(response)
+        Ok(e) => match e{
+            DatabaseResult::Inserted => {
+                let response = Response {
+                    status: "Success".to_string(),
+                    code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
+                    message: "Spending category inserted successfully".to_string(),
+                    description: "".to_string(),
+                    data: Some(serde_json::to_value(new_category).unwrap()),
+                };
+                HttpResponse::Ok().json(response)
+            },
+            DatabaseResult::Duplicate => {
+                let mut response = Response {
+                    status: "Error".to_string(),
+                    code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
+                    message: "Failed to insert earning category".to_string(),
+                    description: "Earning category already exists".to_string(),
+                    data: None,
+                };
+                HttpResponse::BadRequest().json(response)
+            }
+            
         },
         Err(err) => {
             let mut response = Response {
