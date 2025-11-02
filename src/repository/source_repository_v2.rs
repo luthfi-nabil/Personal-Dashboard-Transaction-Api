@@ -1,6 +1,7 @@
-use mysql::*;
+use mysql::{Result, PooledConn, params, Error as MysqlError};
 use mysql::prelude::*;
 use crate::models::source::{self, SourceV2};
+use crate::models::responses::{DatabaseResult};
 use chrono::{Utc, DateTime, NaiveDateTime};
 use uuid::Uuid;
 use std::error::Error;
@@ -60,17 +61,31 @@ pub fn select_source(conn: &mut PooledConn, source_id: &String) -> Result<Vec<So
     Ok(result)
 }
 
-pub fn insert_source(conn: &mut PooledConn, source: &SourceV2) -> Result<()> {
-    conn.exec_drop(
-        "INSERT INTO source (source_id, source, created_date, created_by, is_active) VALUES (?,?,?,?,?)",
-            (source.source_id.to_string(),
+pub fn insert_source(conn: &mut PooledConn, source: &SourceV2) -> Result<DatabaseResult, Box<dyn Error>> {
+    let result = conn.exec_drop(
+        "INSERT INTO source (source_id, source, created_date, created_by, is_active)
+         VALUES (?,?,?,?,?)",
+        (
+            source.source_id.to_string(),
             source.source.to_string(),
             source.created_date.to_string(),
             source.created_by.clone(),
-            source.is_active.to_string())
-        
-    )?;
-    Ok(())
+            source.is_active,
+        ),
+    );
+
+    match result {
+        Ok(_) => Ok(DatabaseResult::Inserted),
+
+        Err(MysqlError::MySqlError(ref e)) => match e.code {
+            1062u16 => {
+                Ok(DatabaseResult::Duplicate)
+            }
+            _ => Err(Box::new(MysqlError::MySqlError(e.clone()))),
+        },
+
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
 pub fn delete_source(conn: &mut PooledConn, source: &String) -> Result<()> {

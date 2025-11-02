@@ -8,3 +8,9 @@ pub struct Response {
     pub description: String,
     pub data: Option<serde_json::Value>,
 }
+
+#[derive(Debug)]
+pub enum DatabaseResult {
+    Inserted,
+    Duplicate,
+}
