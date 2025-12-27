@@ -1,8 +1,7 @@
 use mysql::*;
 use mysql::prelude::*;
-use std::collections::HashMap;
-use chrono::{Utc, DateTime, NaiveDateTime};
-use crate::models::spending::{self,Spending, SpendingV2, SpendingCategory, SpendingCategoryV2,SpendingParam};
+use chrono::{NaiveDateTime};
+use crate::models::spending::{SpendingV2, SpendingCategoryV2,SpendingParam};
 use uuid::Uuid;
 use std::error::Error;
 pub fn create_spending_category_table(conn: &mut PooledConn) -> Result<()> {
