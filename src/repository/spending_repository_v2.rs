@@ -95,22 +95,46 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
         None => {}
     }
 
-    let results: Vec<SpendingV2> = conn.exec_map(query, params, |(spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by, is_active): (String, String, String, String, String,String, String, String, String, String)|{
+    let results: Vec<SpendingV2> = conn.exec_map(
+    query,
+    params,
+    |(
+        spending_id,
+        total_amount,
+        description,
+        spending_category_id,
+        spending_category,
+        source_id,
+        source,
+        created_date,
+        created_by,
+        is_active
+    ): (
+        Vec<u8>,          // spending_id (BINARY)
+        f64,              // total_amount
+        String,           // description (nullable safe)
+        Vec<u8>,          // spending_category_id
+        String,           // spending_category
+        String,           // source_id
+        String,           // source
+        NaiveDateTime,    // created_date
+        String,           // created_by
+        i32               // is_active
+    )| {
         SpendingV2 {
-            spending_id: Uuid::parse_str(&spending_id)
-                .unwrap_or_else(|_| Uuid::nil()),
-            total_amount: total_amount.parse::<f64>().unwrap_or(0.0),
-            description: description,
-            spending_category_id: Uuid::parse_str(&spending_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+            spending_id: Uuid::from_slice(&spending_id)
+                .unwrap_or(Uuid::nil()),
+            total_amount,
+            description,
+            spending_category_id: Uuid::from_slice(&spending_category_id)
+                .unwrap_or(Uuid::nil()),
             spending_category,
             source_id: Uuid::parse_str(&source_id)
                 .unwrap_or_else(|_| Uuid::nil()),
             source,
-            created_date: NaiveDateTime::parse_from_str(&created_date, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_else(|_| NaiveDateTime::from_timestamp_opt(0, 0).unwrap()),
-            created_by: created_by,
-            is_active: is_active.parse::<i32>().unwrap_or(0),
+            created_date,
+            created_by,
+            is_active,
         }
     })?;
     Ok(results)

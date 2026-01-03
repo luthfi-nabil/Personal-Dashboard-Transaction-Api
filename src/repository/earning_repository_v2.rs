@@ -97,23 +97,49 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
         None => {}
     }
 
-    let results: Vec<EarningV2> = conn.exec_map(query, params, |(earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by, is_active): (String, String, String, String, String,String, String, NaiveDateTime, String, String)|{
-        EarningV2 {
-            earning_id: Uuid::parse_str(&earning_id)
-                .unwrap_or_else(|_| Uuid::nil()),
-            total_amount: total_amount.parse::<f64>().unwrap_or(0.0),
-            description: description,
-            earning_category_id: Uuid::parse_str(&earning_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+    let results: Vec<EarningV2> = conn.exec_map(
+        query,
+        params,
+        |(
+            earning_id,
+            total_amount,
+            description,
+            earning_category_id,
             earning_category,
-            source_id: Uuid::parse_str(&source_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+            source_id,
             source,
-            created_date: created_date,
-            created_by: created_by,
-            is_active: is_active.parse::<i32>().unwrap_or(0),
-        }
-    })?;
+            created_date,
+            created_by,
+            is_active,
+        ): (
+            Vec<u8>,          // earning_id (BINARY UUID)
+            f64,              // total_amount (DOUBLE)
+            String,   // description
+            Vec<u8>,          // earning_category_id
+            String,           // earning_category
+            String,          // source_id
+            String,           // source
+            NaiveDateTime,    // created_date (DATETIME)
+            String,           // created_by
+            i32               // is_active (INT)
+        )| {
+            EarningV2 {
+                earning_id: Uuid::from_slice(&earning_id)
+                    .unwrap_or(Uuid::nil()),
+                total_amount,
+                description,
+                earning_category_id: Uuid::from_slice(&earning_category_id)
+                    .unwrap_or(Uuid::nil()),
+                earning_category,
+                source_id: Uuid::parse_str(&source_id)
+                .unwrap_or_else(|_| Uuid::nil()),
+                source,
+                created_date,
+                created_by,
+                is_active,
+            }
+        },
+    )?;
     Ok(results)
 }
 
