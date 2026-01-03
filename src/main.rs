@@ -3,7 +3,9 @@ mod models;
 mod routes;
 mod repository;
 mod helper;
-use actix_web::{App, HttpServer};
+mod route_middleware;
+use route_middleware::json_error::JsonErrorMiddleware;
+use actix_web::{App, HttpServer, web::Json};
 use dotenv::dotenv;
 use std::env;
 
@@ -21,6 +23,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
+            .wrap(JsonErrorMiddleware)
             .configure(init) // Initialize routes
     })
     .bind(format!("{}:{}", host, port))?

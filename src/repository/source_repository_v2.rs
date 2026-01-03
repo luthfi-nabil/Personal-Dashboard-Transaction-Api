@@ -1,6 +1,6 @@
 use mysql::{Result, PooledConn, params, Error as MysqlError};
 use mysql::prelude::*;
-use crate::models::source::{self, SourceV2};
+use crate::models::source::{self, SourceV2, SourceBalance};
 use crate::models::responses::{DatabaseResult};
 use chrono::{Utc, DateTime, NaiveDateTime};
 use uuid::Uuid;
@@ -12,7 +12,8 @@ pub fn create_source_table(conn: &mut PooledConn) -> Result<()> {
             SOURCE VARCHAR(255) NOT NULL UNIQUE,
             created_date DATETIME NOT NULL,
             created_by VARCHAR(255) NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1
+            is_active INTEGER NOT NULL DEFAULT 1,
+            UNIQUE KEY `source_unique` (`source`,`created_by`)
         )"
     )?;
     Ok(())
@@ -20,17 +21,24 @@ pub fn create_source_table(conn: &mut PooledConn) -> Result<()> {
 
 
 
-pub fn select_all_sources(conn: &mut PooledConn) -> Result<Vec<SourceV2>> {
-    let result = conn.query_map(
-        "SELECT source_id, source, created_date, created_by, is_active FROM source",
-        |(source_id, source, created_date, created_by, is_active): (String, String, String, String, String)| {
+pub fn select_all_sources(conn: &mut PooledConn, source: &SourceV2) -> Result<Vec<SourceV2>> {
+    let mut query = String::from("SELECT source_id, source, created_date, created_by, is_active FROM source WHERE is_active = 1");
+    let mut params: Vec<mysql::Value> = Vec::new();
+    if source.source_id != Uuid::nil() {
+        query.push_str(" AND source_id = ?");
+        params.push(source.source_id.to_string().into());
+    }
+    if !source.created_by.is_empty() {
+        query.push_str(" AND created_by = ?");
+        params.push(source.created_by.to_string().into());
+    }
+    let result = conn.exec_map(
+        query,
+        params,
+        |(source_id, source, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
             let source_id = Uuid::parse_str(&source_id)
                 .unwrap_or_else(|_| Uuid::nil());
 
-            let created_date = NaiveDateTime::parse_from_str(&created_date, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_else(|_| NaiveDateTime::from_timestamp_opt(0, 0).unwrap());
-
-            let is_active = is_active.parse::<i32>().unwrap_or(0);
 
             SourceV2 {
                 source_id,
@@ -44,18 +52,67 @@ pub fn select_all_sources(conn: &mut PooledConn) -> Result<Vec<SourceV2>> {
     Ok(result)
 }
 
-pub fn select_source(conn: &mut PooledConn, source_id: &String) -> Result<Vec<SourceV2>> {
-    let result = conn.exec_map("SELECT source_id, source, created_date, created_by, is_active FROM source where source_id = :source_id and is_active = 1",
-    params!{
-        "source_id"=>source_id
-    },
-    |(source_id, source, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)|{
-        let source_id = Uuid::parse_str(&source_id)
+pub fn select_sources_balance(conn: &mut PooledConn, source: &SourceV2) -> Result<Vec<SourceBalance>> {
+    let mut query = String::from(r#"
+    SELECT 
+        a.source_id, 
+        a.source, 
+        sum(IFNULL(b.total_amount,0))-sum(IFNULL(c.total_amount,0)) as total 
+    FROM source as a 
+    LEFT JOIN earning as b 
+    on b.is_active = 1
+    AND a.source_id = b.source_id 
+    LEFT JOIN spending c 
+    on c.is_active = 1
+    AND a.source_id = c.source_id 
+    WHERE a.is_active = 1
+    "#);
+    let mut params: Vec<mysql::Value> = Vec::new();
+    if source.source_id != Uuid::nil() {
+        query.push_str(" AND a.source_id = ?");
+        params.push(source.source_id.to_string().into());
+    }
+    if !source.created_by.is_empty() {
+        query.push_str(" AND a.created_by = ?");
+        params.push(source.created_by.to_string().into());
+    }
+    query.push_str(" GROUP BY a.source_id, a.source");
+    let result: Vec<SourceBalance> = conn.exec_map(
+        query,
+        params,
+        |(source_id, source, total): (String, String, f64)| {
+            let source_id = Uuid::parse_str(&source_id)
                 .unwrap_or_else(|_| Uuid::nil());
 
-        
+            SourceBalance {
+                source_id,
+                source,
+                total
+            }
+        },
+    )?;
+    Ok(result)
+}
 
-        SourceV2 { source_id, source, created_date, created_by, is_active}
+pub fn select_source(conn: &mut PooledConn, source: &SourceV2) -> Result<Vec<SourceV2>> {
+    let mut query = String::from("SELECT source_id, source, created_date, created_by, is_active FROM source WHERE is_active = 1");
+    let mut params: Vec<mysql::Value> = Vec::new();
+    if source.source_id != Uuid::nil() {
+        query.push_str(" AND source_id = ?");
+        params.push(source.source_id.to_string().into());
+    }
+
+    if !source.created_by.is_empty() {
+        query.push_str(" AND created_by = ?");
+        params.push(source.created_by.clone().into());
+    }
+    let result = conn.exec_map(
+        query,
+        params,
+        |(source_id, source, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
+
+        SourceV2 { source_id: Uuid::parse_str(&source_id)
+                .unwrap_or_else(|_| Uuid::nil()), source: source, created_date: created_date, created_by: created_by, is_active: is_active}
     })?;
     
     Ok(result)
@@ -88,10 +145,10 @@ pub fn insert_source(conn: &mut PooledConn, source: &SourceV2) -> Result<Databas
     }
 }
 
-pub fn delete_source(conn: &mut PooledConn, source: &String) -> Result<()> {
+pub fn delete_source(conn: &mut PooledConn, source: &SourceV2) -> Result<()> {
     conn.exec_drop(
-        "UPDATE source SET is_active = 0 WHERE source = :source",
-        params!{"source"=>source},
+        "UPDATE source SET is_active = 0 WHERE source = :source and created_by = :by",
+        params!{"source"=>source.source.to_string(), "by"=>source.created_by.to_string()},
     )?;
     Ok(())
 }

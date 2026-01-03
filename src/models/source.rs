@@ -27,3 +27,10 @@ pub struct SourceV2 {
     #[serde(skip_deserializing)]
     pub is_active: i32
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SourceBalance {
+    pub source: String,
+    pub source_id: Uuid,
+    pub total: f64,
+}

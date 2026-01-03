@@ -13,3 +13,4 @@ tokio = { version = "1", features = ["full"] }
 rusqlite = { version = "0.37.0", features = ["bundled", "uuid", "chrono"] }
 chrono = {version = "0.4.42", features = ["serde"]}
 mysql = {version = "25.0.1", features = ["chrono"]}
+futures-util = "0.3"
