@@ -52,48 +52,6 @@ pub fn select_all_sources(conn: &mut PooledConn, source: &SourceV2) -> Result<Ve
     Ok(result)
 }
 
-pub fn select_sources_balance(conn: &mut PooledConn, source: &SourceV2) -> Result<Vec<SourceBalance>> {
-    let mut query = String::from(r#"
-    SELECT 
-        a.source_id, 
-        a.source, 
-        sum(IFNULL(b.total_amount,0))-sum(IFNULL(c.total_amount,0)) as total 
-    FROM source as a 
-    LEFT JOIN earning as b 
-    on b.is_active = 1
-    AND a.source_id = b.source_id 
-    LEFT JOIN spending c 
-    on c.is_active = 1
-    AND a.source_id = c.source_id 
-    WHERE a.is_active = 1
-    "#);
-    let mut params: Vec<mysql::Value> = Vec::new();
-    if source.source_id != Uuid::nil() {
-        query.push_str(" AND a.source_id = ?");
-        params.push(source.source_id.to_string().into());
-    }
-    if !source.created_by.is_empty() {
-        query.push_str(" AND a.created_by = ?");
-        params.push(source.created_by.to_string().into());
-    }
-    query.push_str(" GROUP BY a.source_id, a.source");
-    let result: Vec<SourceBalance> = conn.exec_map(
-        query,
-        params,
-        |(source_id, source, total): (String, String, f64)| {
-            let source_id = Uuid::parse_str(&source_id)
-                .unwrap_or_else(|_| Uuid::nil());
-
-            SourceBalance {
-                source_id,
-                source,
-                total
-            }
-        },
-    )?;
-    Ok(result)
-}
-
 pub fn select_source(conn: &mut PooledConn, source: &SourceV2) -> Result<Vec<SourceV2>> {
     let mut query = String::from("SELECT source_id, source, created_date, created_by, is_active FROM source WHERE is_active = 1");
     let mut params: Vec<mysql::Value> = Vec::new();

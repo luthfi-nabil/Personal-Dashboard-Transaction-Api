@@ -121,19 +121,33 @@ pub async fn post_earning_api_v2(req: HttpRequest,earning: web::Json<EarningV2>)
         app_setting_value: "".to_string(),
         is_active: 1
     };
-    let mut transfer_category_id = Uuid::nil();
-    let mut transfer_category_name = String::new();
+    
     let _get_app_setting = select_all_settings(&mut conn, &app_setting);
+    let mut settings_bypass = false;
     if _get_app_setting.is_ok() {
+        let mut recount_category_id = Uuid::nil();
+        let mut recount_category_name = String::new();
+        let mut transfer_category_id = Uuid::nil();
+        let mut transfer_category_name = String::new();
         for setting in _get_app_setting.unwrap() {
             if setting.app_setting_key == "TRANSFER_CATEGORY_ID" {
                 transfer_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
             }else if setting.app_setting_key == "TRANSFER_CATEGORY_NAME" {
-                transfer_category_name = setting.app_setting_value;
+                transfer_category_name = setting.app_setting_value.clone();
+            }
+            if setting.app_setting_key == "RECOUNT_CATEGORY_ID" {
+                recount_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
+            }else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
+                recount_category_name = setting.app_setting_value.clone();
             }
         }
-        if(transfer_category_id == new_earning.earning_category_id){
-            new_earning.earning_category = transfer_category_name; 
+        if(transfer_category_id != Uuid::nil() && transfer_category_id == new_earning.earning_category_id){
+            new_earning.earning_category = transfer_category_name.clone(); 
+            settings_bypass = true;
+        }
+        if(recount_category_id != Uuid::nil() && recount_category_id == new_earning.earning_category_id){
+            new_earning.earning_category = recount_category_name.clone(); 
+            settings_bypass = true;
         }
     }
     let mut response = Response {
@@ -144,7 +158,7 @@ pub async fn post_earning_api_v2(req: HttpRequest,earning: web::Json<EarningV2>)
         data: None,
         success: true
     };
-    if _check_source.is_ok() && _check_category.is_ok() && (_check_category.as_ref().unwrap().len() > 0 || (transfer_category_id != Uuid::nil() && transfer_category_id == new_earning.earning_category_id)) && _check_source.as_ref().unwrap().len() > 0 {
+    if _check_source.is_ok() && _check_category.is_ok() && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass) && _check_source.as_ref().unwrap().len() > 0 {
         let _result  = insert_earning(&mut conn, &new_earning);
         
         if _result.is_err() {
