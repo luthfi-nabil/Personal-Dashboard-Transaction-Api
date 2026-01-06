@@ -47,14 +47,14 @@ where
         self.service.poll_ready(cx)
     }
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
         
         Box::pin(async move {
             if let Some(created_by) = req.match_info().get("created_by") {
                 // Store it for handlers
                 req.extensions_mut()
-                    .insert(CreatedBy(created_by.clone().to_string()));
+                    .insert(CreatedBy(created_by.to_string()));
             }
            
             srv.call(req).await

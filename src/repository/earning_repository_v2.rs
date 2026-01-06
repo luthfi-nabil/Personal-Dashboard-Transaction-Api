@@ -1,9 +1,8 @@
 use mysql::{Result, PooledConn, params, Error as MysqlError};
 use mysql::prelude::*;
-use std::collections::HashMap;
-use chrono::{Utc, DateTime, NaiveDateTime};
+use chrono::{NaiveDateTime};
 use crate::models::responses::{DatabaseResult};
-use crate::models::earning::{self,Earning, EarningV2, EarningCategory, EarningCategoryV2,EarningParam};
+use crate::models::earning::{EarningV2, EarningCategoryV2,EarningParam};
 use uuid::Uuid;
 use std::error::Error;
 pub fn create_earning_category_table(conn: &mut PooledConn) -> Result<()> {
@@ -112,10 +111,10 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
             created_by,
             is_active,
         ): (
-            Vec<u8>,          // earning_id (BINARY UUID)
+            String,          // earning_id (BINARY UUID)
             f64,              // total_amount (DOUBLE)
             String,   // description
-            Vec<u8>,          // earning_category_id
+            String,          // earning_category_id
             String,           // earning_category
             String,          // source_id
             String,           // source
@@ -124,12 +123,12 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
             i32               // is_active (INT)
         )| {
             EarningV2 {
-                earning_id: Uuid::from_slice(&earning_id)
-                    .unwrap_or(Uuid::nil()),
+                earning_id: Uuid::parse_str(&earning_id)
+                .unwrap_or_else(|_| Uuid::nil()),
                 total_amount,
                 description,
-                earning_category_id: Uuid::from_slice(&earning_category_id)
-                    .unwrap_or(Uuid::nil()),
+                earning_category_id: Uuid::parse_str(&earning_category_id)
+                .unwrap_or_else(|_| Uuid::nil()),
                 earning_category,
                 source_id: Uuid::parse_str(&source_id)
                 .unwrap_or_else(|_| Uuid::nil()),

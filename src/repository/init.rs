@@ -1,5 +1,4 @@
-use mysql::{Result, PooledConn, params, Error as MysqlError};
-use mysql::prelude::*;
+use mysql::{PooledConn};
 
 use crate::helper::connection::{establish_connection_v2};
 use crate::repository::spending_repository_v2::{create_spending_category_table as create_spending_category_table_v2, create_spending_table as create_spending_table_v2};

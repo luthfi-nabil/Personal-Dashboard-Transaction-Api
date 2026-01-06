@@ -1,15 +1,9 @@
-use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{DateTime, Utc, Local};
+use actix_web::{HttpResponse};
 use uuid::Uuid;
 use crate::models::app_setting;
-use crate::models::source::{SourceV2};
-use crate::models::earning::{EarningV2, EarningParam, EarningCategoryV2};
-use crate::models::responses::{Response, DatabaseResult};
+use crate::models::responses::{Response};
 use crate::helper::connection::{establish_connection_v2};
-use crate::repository::source_repository_v2::{select_source};
-use crate::repository::earning_repository_v2::{select_all_earning_categories, insert_earning, select_earnings, select_earning_category, delete_earning_category, insert_earning_category};
 use crate::repository::app_setting_repository::{select_all_settings};
-use crate::route_middleware::get_user::CreatedBy;
 
 pub async fn get_all_setting_api() -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");

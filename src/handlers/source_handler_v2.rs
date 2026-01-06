@@ -1,12 +1,12 @@
 use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{DateTime, Utc, Local};
+use chrono::{Local};
 use uuid::Uuid;
 use crate::models::source::{SourceBalance, SourceV2};
 use crate::models::responses::{Response, DatabaseResult};
 use crate::helper::connection::{establish_connection_v2};
-use crate::repository::source_repository_v2::{select_all_sources, select_source, insert_source, delete_source};
-use crate::repository::spending_repository_v2::{select_all_spending_categories, insert_spending, select_spendings, select_spending_category, delete_spending_category, insert_spending_category};
-use crate::repository::earning_repository_v2::{select_all_earning_categories, insert_earning, select_earnings, select_earning_category, delete_earning_category, insert_earning_category};
+use crate::repository::source_repository_v2::{select_all_sources, insert_source, delete_source};
+use crate::repository::spending_repository_v2::{select_spendings};
+use crate::repository::earning_repository_v2::{select_earnings};
 use crate::route_middleware::get_user::CreatedBy;
 
 pub async fn get_all_sources_api_v2(req: HttpRequest) -> HttpResponse {
@@ -137,7 +137,7 @@ pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -
                 HttpResponse::Ok().json(response)
             },
             DatabaseResult::Duplicate => {
-                let mut response = Response {
+                let response = Response {
                     status: "Error".to_string(),
                     code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                     message: "Failed to insert source".to_string(),
@@ -150,7 +150,7 @@ pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -
             
         },
         Err(err) => {
-            let mut response = Response {
+            let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to insert source".to_string(),
@@ -190,7 +190,7 @@ pub async fn delete_source_api_v2(req: HttpRequest,path: web::Path<String>) -> H
             HttpResponse::Ok().json(response)
         },
         Err(err) => {
-            let mut response = Response {
+            let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_DELETION_FAILED,
                 message: "Failed to delete source".to_string(),

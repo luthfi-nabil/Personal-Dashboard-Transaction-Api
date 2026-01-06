@@ -1,11 +1,6 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{Result};
 use mysql::*;
-use mysql::prelude::*;
 use std::env;
-pub fn establish_connection() -> Result<Connection> {
-    let conn = Connection::open("transaction.db")?;
-    Ok(conn)
-}
 
 pub fn establish_connection_v2() -> Result<PooledConn, Box<dyn std::error::Error>>{
     let host = env::var("DB_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
@@ -16,6 +11,6 @@ pub fn establish_connection_v2() -> Result<PooledConn, Box<dyn std::error::Error
     let url = format!("mysql://{}:{}@{}:{}/{}",user, pass, host, port, database);
     println!("{}", url);
     let pool = Pool::new(url.as_str())?;
-    let mut conn = pool.get_conn()?;
+    let conn = pool.get_conn()?;
     Ok(conn)
 }

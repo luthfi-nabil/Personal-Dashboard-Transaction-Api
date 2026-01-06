@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{DateTime, Utc, Local};
+use chrono::{Local};
 use uuid::Uuid;
 use crate::models::app_setting;
 use crate::models::source::{SourceV2};
@@ -141,11 +141,11 @@ pub async fn post_earning_api_v2(req: HttpRequest,earning: web::Json<EarningV2>)
                 recount_category_name = setting.app_setting_value.clone();
             }
         }
-        if(transfer_category_id != Uuid::nil() && transfer_category_id == new_earning.earning_category_id){
+        if transfer_category_id != Uuid::nil() && transfer_category_id == new_earning.earning_category_id {
             new_earning.earning_category = transfer_category_name.clone(); 
             settings_bypass = true;
         }
-        if(recount_category_id != Uuid::nil() && recount_category_id == new_earning.earning_category_id){
+        if recount_category_id != Uuid::nil() && recount_category_id == new_earning.earning_category_id {
             new_earning.earning_category = recount_category_name.clone(); 
             settings_bypass = true;
         }
@@ -233,15 +233,6 @@ pub async fn post_earning_category_api_v2(req: HttpRequest,category: web::Json<E
     };
     
     let _result  = insert_earning_category(&mut conn, &new_category);
-
-    let mut response = Response {
-        status: "Success".to_string(),
-        code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
-        message: "Earning category created successfully".to_string(),
-        description: "".to_string(),
-        data: None,
-        success: true
-    };
     match _result {
         Ok(e) => match e{
             DatabaseResult::Inserted => {
@@ -256,7 +247,7 @@ pub async fn post_earning_category_api_v2(req: HttpRequest,category: web::Json<E
                 HttpResponse::Ok().json(response)
             },
             DatabaseResult::Duplicate => {
-                let mut response = Response {
+                let response = Response {
                     status: "Error".to_string(),
                     code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                     message: "Failed to insert earning category".to_string(),
@@ -269,7 +260,7 @@ pub async fn post_earning_category_api_v2(req: HttpRequest,category: web::Json<E
             
         },
         Err(err) => {
-            let mut response = Response {
+            let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to insert earning category".to_string(),

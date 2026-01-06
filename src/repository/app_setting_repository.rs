@@ -1,8 +1,5 @@
-use mysql::{Result, PooledConn, params, Error as MysqlError};
+use mysql::{Result, PooledConn};
 use mysql::prelude::*;
-use std::collections::HashMap;
-use chrono::{Utc, DateTime, NaiveDateTime};
-use crate::models::responses::{DatabaseResult};
 use uuid::Uuid;
 use std::error::Error;
 use crate::models::app_setting::AppSettings;

@@ -110,10 +110,10 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
         created_by,
         is_active
     ): (
-        Vec<u8>,          // spending_id (BINARY)
+        String,          // spending_id (BINARY)
         f64,              // total_amount
         String,           // description (nullable safe)
-        Vec<u8>,          // spending_category_id
+        String,          // spending_category_id
         String,           // spending_category
         String,           // source_id
         String,           // source
@@ -122,12 +122,12 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
         i32               // is_active
     )| {
         SpendingV2 {
-            spending_id: Uuid::from_slice(&spending_id)
-                .unwrap_or(Uuid::nil()),
+            spending_id: Uuid::parse_str(&spending_id)
+                .unwrap_or_else(|_| Uuid::nil()),
             total_amount,
             description,
-            spending_category_id: Uuid::from_slice(&spending_category_id)
-                .unwrap_or(Uuid::nil()),
+            spending_category_id: Uuid::parse_str(&spending_category_id)
+                .unwrap_or_else(|_| Uuid::nil()),
             spending_category,
             source_id: Uuid::parse_str(&source_id)
                 .unwrap_or_else(|_| Uuid::nil()),

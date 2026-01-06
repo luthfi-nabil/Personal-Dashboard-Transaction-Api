@@ -1,10 +1,10 @@
 use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{DateTime, Utc, Local};
+use chrono::{Local};
 use uuid::Uuid;
-use crate::models::source::{self, Source, SourceV2};
+use crate::models::source::{SourceV2};
 use crate::models::spending::{SpendingV2, SpendingParam, SpendingCategoryV2};
 use crate::models::app_setting::{AppSettings};
-use crate::models::responses::{Response, DatabaseResult};
+use crate::models::responses::{Response};
 use crate::helper::connection::{establish_connection_v2};
 use crate::repository::source_repository_v2::{select_source};
 use crate::repository::spending_repository_v2::{select_all_spending_categories, insert_spending, select_spendings, select_spending_category, delete_spending_category, insert_spending_category};
@@ -140,11 +140,11 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
                 recount_category_name = setting.app_setting_value.clone();
             }
         }
-        if(transfer_category_id != Uuid::nil() && transfer_category_id == new_spending.spending_category_id){
+        if transfer_category_id != Uuid::nil() && transfer_category_id == new_spending.spending_category_id {
             new_spending.spending_category = transfer_category_name.clone(); 
             settings_bypass = true;
         }
-        if(recount_category_id != Uuid::nil() && recount_category_id == new_spending.spending_category_id){
+        if recount_category_id != Uuid::nil() && recount_category_id == new_spending.spending_category_id {
             new_spending.spending_category = recount_category_name.clone(); 
             settings_bypass = true;
         }
@@ -233,14 +233,6 @@ pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json
     
     let _result  = insert_spending_category(&mut conn, &new_category);
 
-    let mut response = Response {
-        status: "Success".to_string(),
-        code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
-        message: "Spending category created successfully".to_string(),
-        description: "".to_string(),
-        data: None,
-        success: true
-    };
     match _result {
         Ok(_) => {
             let response = Response {
@@ -254,7 +246,7 @@ pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json
             HttpResponse::Ok().json(response)
         },
         Err(err) => {
-            let mut response = Response {
+            let response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to insert spending category".to_string(),

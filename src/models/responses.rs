@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use actix_web::{HttpResponse, ResponseError};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
     pub status: String,
