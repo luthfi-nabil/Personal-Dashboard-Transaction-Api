@@ -48,6 +48,14 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
         None => {}
     }
 
+    match &param.earning_id {
+        Some(val)=>{
+            query.push_str(" and earning_id = ?");
+            params.push(val.into());
+        },
+        None => {}
+    }
+
     match &param.earning_category {
         Some(val)=>{
             query.push_str(" and upper(earning_category) = ?");

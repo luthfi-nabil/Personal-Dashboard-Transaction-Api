@@ -47,7 +47,8 @@ pub struct SpendingParam {
     pub source: Option<String>,
     pub month: Option<i32>,
     pub year: Option<i32>,
-    pub day: Option<i32>
+    pub day: Option<i32>,
+    pub spending_id: Option<Uuid>
 }
 
 #[derive(Debug, Serialize, Deserialize)]

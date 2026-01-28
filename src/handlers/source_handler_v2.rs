@@ -65,7 +65,8 @@ pub async fn get_all_source_balance(req: HttpRequest) -> HttpResponse {
         source: None,
         month: None,
         year: None,
-        day: None
+        day: None,
+        spending_id: None
     }, Some(created_by.clone()));
     let _earning_result = select_earnings(&mut conn, &crate::models::earning::EarningParam {
         description: None,
@@ -75,7 +76,8 @@ pub async fn get_all_source_balance(req: HttpRequest) -> HttpResponse {
         source: None,
         month: None,
         year: None,
-        day: None
+        day: None,
+        earning_id: None
     }, Some(created_by.clone()));
     let _source_result = select_all_sources(&mut conn, &source_filter);
     let mut _source_balance: Vec<SourceBalance> = Vec::new();

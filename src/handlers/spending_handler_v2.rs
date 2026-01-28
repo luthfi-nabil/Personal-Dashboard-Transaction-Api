@@ -128,6 +128,8 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         let mut recount_category_name = String::new();
         let mut transfer_category_id = Uuid::nil();
         let mut transfer_category_name = String::new();
+        let mut debt_category_id = Uuid::nil();
+        let mut debt_category_name = String::new();
         for setting in _get_app_setting.unwrap() {
             if setting.app_setting_key == "TRANSFER_CATEGORY_ID" {
                 transfer_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
@@ -139,6 +141,11 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
             }else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
                 recount_category_name = setting.app_setting_value.clone();
             }
+            if setting.app_setting_key == "DEBT_CATEGORY_ID" {
+                debt_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
+            }else if setting.app_setting_key == "DEBT_CATEGORY_NAME" {
+                debt_category_name = setting.app_setting_value.clone();
+            }
         }
         if transfer_category_id != Uuid::nil() && transfer_category_id == new_spending.spending_category_id {
             new_spending.spending_category = transfer_category_name.clone(); 
@@ -146,6 +153,10 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         }
         if recount_category_id != Uuid::nil() && recount_category_id == new_spending.spending_category_id {
             new_spending.spending_category = recount_category_name.clone(); 
+            settings_bypass = true;
+        }
+        if debt_category_id != Uuid::nil() && debt_category_id == new_spending.spending_category_id {
+            new_spending.spending_category = debt_category_name.clone(); 
             settings_bypass = true;
         }
     }

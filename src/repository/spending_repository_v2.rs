@@ -55,6 +55,14 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
         None => {}
     }
 
+    match &param.spending_id {
+        Some(val)=>{
+            query.push_str(" and spending_id = ?");
+            params.push(val.into());
+        },
+        None => {}
+    }
+
     match &param.source {
         Some(val)=>{
             query.push_str(" and upper(source) = ?");

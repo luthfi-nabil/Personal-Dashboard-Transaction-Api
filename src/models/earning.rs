@@ -46,7 +46,8 @@ pub struct EarningParam {
     pub source: Option<String>,
     pub month: Option<i32>,
     pub year: Option<i32>,
-    pub day: Option<i32>
+    pub day: Option<i32>,
+    pub earning_id: Option<Uuid>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
