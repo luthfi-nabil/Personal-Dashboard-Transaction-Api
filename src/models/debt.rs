@@ -9,10 +9,9 @@ pub struct Debt {
     pub amount: f64,
     pub description: String,
     pub debt_type: i32,
-    #[serde(skip_deserializing)]
     pub debt_earning_id: Option<Uuid>,
-    #[serde(skip_deserializing)]
     pub debt_spending_id: Option<Uuid>,
+    #[serde(skip_deserializing)]
     pub status: i32,
     #[serde(skip_deserializing)]
     pub created_date: NaiveDateTime,

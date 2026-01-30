@@ -39,6 +39,7 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
     let mut query = String::from("SELECT spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by, is_active FROM spending");
     query.push_str(" where is_active = 1");
     let mut params: Vec<mysql::Value> = Vec::new();
+    println!("Select Spending with params: {:?}", param);
     match &param.description {
         Some(val)=>{
             query.push_str(" and description like ?");
@@ -58,7 +59,7 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
     match &param.spending_id {
         Some(val)=>{
             query.push_str(" and spending_id = ?");
-            params.push(val.into());
+            params.push(val.to_string().into());
         },
         None => {}
     }
@@ -102,7 +103,7 @@ pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by
         },
         None => {}
     }
-
+    println!("Final Params: {:?}", params);
     let results: Vec<SpendingV2> = conn.exec_map(
     query,
     params,

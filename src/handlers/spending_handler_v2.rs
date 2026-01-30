@@ -109,7 +109,6 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         created_by: created_by.clone(),
         is_active: 1
     };
-
     
     let _check_source = select_source(&mut conn, &source);
     let _check_category = select_spending_category(&mut conn, &category);
@@ -120,7 +119,7 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         app_setting_value: "".to_string(),
         is_active: 1
     };
-
+    println!("Debug: Checking source and category existence {}", _check_category.as_ref().unwrap().len() == 0);
     let _get_app_setting = select_all_settings(&mut conn, &app_setting);
     let mut settings_bypass = false;
     if _get_app_setting.is_ok() {
