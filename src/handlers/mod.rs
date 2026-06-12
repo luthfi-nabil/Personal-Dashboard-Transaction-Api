@@ -4,3 +4,5 @@ pub mod earning_handler_v2;
 pub mod spending_handler_v2;
 pub mod debt_handler;
 pub mod app_setting_handler;
+pub mod swagger_handler;
+pub mod flutter_sync_handler;

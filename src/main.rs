@@ -5,6 +5,7 @@ mod repository;
 mod helper;
 mod route_middleware;
 use route_middleware::json_error::JsonErrorMiddleware;
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, middleware::{Logger}};
 use dotenv::dotenv;
 use std::env;
@@ -25,14 +26,22 @@ async fn main() -> std::io::Result<()> {
 
     println!("Server running at http://{}:{}", host, port);
 
+    let app_env = env::var("APP_ENV").unwrap_or_else(|_| "production".to_string());
+    if app_env == "development" {
+        println!("Swagger UI   →  http://{}:{}/docs", host, port);
+        println!("OpenAPI spec →  http://{}:{}/docs/openapi.yaml", host, port);
+    }
+
     HttpServer::new(|| {
         App::new()
             .wrap(JsonErrorMiddleware)
             .wrap(
                 Logger::new(
-                    r#"%t | %a | %m | %U | %s | %b | %T | %{User-Agent}i"#,
+                    r#"%t | %a | %r | %s | %b | %T | %{User-Agent}i"#,
                 )
             )
+            // Outermost: handle CORS preflight (OPTIONS) before it can 404
+            .wrap(Cors::permissive())
             .configure(init) // Initialize routes
     })
     .bind(format!("{}:{}", host, port))?

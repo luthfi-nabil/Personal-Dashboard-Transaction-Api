@@ -1,0 +1,1033 @@
+openapi: 3.0.3
+info:
+  title: Transaction API
+  description: |
+    Personal finance transaction API built with Actix-Web (Rust) and SQLite.
+    Manages sources (wallets/accounts), earnings, spendings, debts, and app settings.
+    
+    All user-specific endpoints are scoped under `/api/user/{created_by}` and require
+    the `created_by` path parameter as the user identifier.
+  version: 2.0.0
+  contact:
+    name: Transaction API
+
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local development server
+
+tags:
+  - name: Settings
+    description: Application settings (global)
+  - name: Sources
+    description: Financial sources / wallet accounts
+  - name: Earnings
+    description: Income transactions
+  - name: Earning Categories
+    description: Categories for income
+  - name: Spendings
+    description: Expense transactions
+  - name: Spending Categories
+    description: Categories for expenses
+  - name: Debts
+    description: Debt / receivable tracking
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Global Settings ──────────────────────────────────────────────────────
+  /api/settings:
+    get:
+      tags: [Settings]
+      summary: Get all app settings (public)
+      operationId: getSettingsPublic
+      responses:
+        "200":
+          description: Settings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseAppSettings"
+
+  # ── User Settings ─────────────────────────────────────────────────────────
+  /api/user/{created_by}/settings:
+    get:
+      tags: [Settings]
+      summary: Get all app settings (user-scoped)
+      operationId: getSettingsUser
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      responses:
+        "200":
+          description: Settings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseAppSettings"
+
+  # ── Sources ──────────────────────────────────────────────────────────────
+  /api/user/{created_by}/source:
+    get:
+      tags: [Sources]
+      summary: Get all sources
+      operationId: getSources
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      responses:
+        "200":
+          description: Sources retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSources"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Sources]
+      summary: Create a new source
+      operationId: createSource
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceInput"
+            example:
+              source: "BCA Savings"
+      responses:
+        "200":
+          description: Source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSource"
+        "400":
+          description: Duplicate source
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/{created_by}/source/{source}:
+    delete:
+      tags: [Sources]
+      summary: Delete a source by ID
+      operationId: deleteSource
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: source
+          in: path
+          required: true
+          description: UUID of the source to delete
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Source deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/{created_by}/source-balance:
+    get:
+      tags: [Sources]
+      summary: Get balance per source (earnings - spendings)
+      operationId: getSourceBalance
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      responses:
+        "200":
+          description: Source balances retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSourceBalance"
+
+  # ── Earnings ─────────────────────────────────────────────────────────────
+  /api/user/{created_by}/earnings:
+    get:
+      tags: [Earnings]
+      summary: Get all earnings (with optional filters)
+      operationId: getEarnings
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: description
+          in: query
+          schema: { type: string }
+        - name: earning_category_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: earning_category
+          in: query
+          schema: { type: string }
+        - name: source_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: month
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+        - name: day
+          in: query
+          schema: { type: integer }
+        - name: earning_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Earnings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEarnings"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Earnings]
+      summary: Create a new earning transaction
+      operationId: createEarning
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarningInput"
+            example:
+              total_amount: 5000000
+              description: "Monthly salary"
+              earning_category_id: "550e8400-e29b-41d4-a716-446655440001"
+              earning_category: "Salary"
+              source_id: "550e8400-e29b-41d4-a716-446655440000"
+              source: "BCA Savings"
+      responses:
+        "201":
+          description: Earning created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEarning"
+        "400":
+          description: Validation error (source or category not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+
+  # ── Earning Categories ────────────────────────────────────────────────────
+  /api/user/{created_by}/earning-categories:
+    get:
+      tags: [Earning Categories]
+      summary: Get all earning categories
+      operationId: getEarningCategories
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      responses:
+        "200":
+          description: Categories retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEarningCategories"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Earning Categories]
+      summary: Create a new earning category
+      operationId: createEarningCategory
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarningCategoryInput"
+            example:
+              earning_category: "Salary"
+      responses:
+        "200":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEarningCategory"
+        "400":
+          description: Duplicate category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/{created_by}/earning-categories/{category}:
+    delete:
+      tags: [Earning Categories]
+      summary: Delete an earning category by UUID
+      operationId: deleteEarningCategory
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: category
+          in: path
+          required: true
+          description: UUID of the earning category
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Spendings ─────────────────────────────────────────────────────────────
+  /api/user/{created_by}/spendings:
+    get:
+      tags: [Spendings]
+      summary: Get all spendings (with optional filters)
+      operationId: getSpendings
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: description
+          in: query
+          schema: { type: string }
+        - name: spending_category_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: spending_category
+          in: query
+          schema: { type: string }
+        - name: source_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: month
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+        - name: day
+          in: query
+          schema: { type: integer }
+        - name: spending_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spendings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpendings"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Spendings]
+      summary: Create a new spending transaction
+      operationId: createSpending
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpendingInput"
+            example:
+              total_amount: 150000
+              description: "Groceries"
+              spending_category_id: "550e8400-e29b-41d4-a716-446655440002"
+              spending_category: "Food"
+              source_id: "550e8400-e29b-41d4-a716-446655440000"
+              source: "BCA Savings"
+      responses:
+        "201":
+          description: Spending created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpending"
+        "400":
+          description: Validation error (source or category not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+
+  # ── Spending Categories ───────────────────────────────────────────────────
+  /api/user/{created_by}/spending-categories:
+    get:
+      tags: [Spending Categories]
+      summary: Get all spending categories
+      operationId: getSpendingCategories
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      responses:
+        "200":
+          description: Categories retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpendingCategories"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Spending Categories]
+      summary: Create a new spending category
+      operationId: createSpendingCategory
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpendingCategoryInput"
+            example:
+              spending_category: "Food"
+      responses:
+        "200":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpendingCategory"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/{created_by}/spending-categories/{category}:
+    delete:
+      tags: [Spending Categories]
+      summary: Delete a spending category by name
+      operationId: deleteSpendingCategory
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: category
+          in: path
+          required: true
+          description: Name of the spending category to delete
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Debts ─────────────────────────────────────────────────────────────────
+  /api/user/{created_by}/debt:
+    get:
+      tags: [Debts]
+      summary: Get all debts (with optional filters)
+      operationId: getDebts
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+        - name: debt_id
+          in: query
+          schema: { type: string }
+        - name: debt_type
+          in: query
+          description: "1 = Kredit/Piutang, 2 = Debit/Hutang"
+          schema: { type: integer, enum: [1, 2] }
+        - name: description
+          in: query
+          schema: { type: string }
+        - name: debt_earning_id
+          in: query
+          schema: { type: string }
+        - name: debt_spending_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Debts retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseDebts"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Debts]
+      summary: Create a new debt record
+      operationId: createDebt
+      description: |
+        Creates a debt linked to an existing transaction.
+        - `debt_type = 1` (Kredit/Piutang): must reference a valid `debt_earning_id`
+        - `debt_type = 2` (Debit/Hutang): must reference a valid `debt_spending_id`
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebtInput"
+            examples:
+              kredit:
+                summary: Kredit (money lent out)
+                value:
+                  amount: 200000
+                  description: "Lent to friend"
+                  debt_type: 1
+                  debt_earning_id: "550e8400-e29b-41d4-a716-446655440010"
+                  debt_spending_id: null
+              debit:
+                summary: Debit (money owed)
+                value:
+                  amount: 100000
+                  description: "Borrowed from friend"
+                  debt_type: 2
+                  debt_earning_id: null
+                  debt_spending_id: "550e8400-e29b-41d4-a716-446655440011"
+      responses:
+        "201":
+          description: Debt created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseDebt"
+        "400":
+          description: Invalid debt (transaction not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+
+  /api/user/{created_by}/debt-status:
+    put:
+      tags: [Debts]
+      summary: Update debt status (mark as settled)
+      operationId: updateDebtStatus
+      parameters:
+        - $ref: "#/components/parameters/CreatedBy"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebtStatusUpdate"
+            example:
+              debt_id: "550e8400-e29b-41d4-a716-446655440099"
+              status: 2
+              debt_earning_id: "550e8400-e29b-41d4-a716-446655440010"
+              debt_spending_id: null
+      responses:
+        "200":
+          description: Debt status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "400":
+          description: Debt not found or transaction data missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+
+  parameters:
+    CreatedBy:
+      name: created_by
+      in: path
+      required: true
+      description: User identifier (username or ID)
+      schema:
+        type: string
+      example: "luthfi"
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ResponseError"
+
+  schemas:
+
+    # ── Base Response ───────────────────────────────────────────────────────
+    BaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "Success"
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+        description:
+          type: string
+        success:
+          type: boolean
+        data:
+          nullable: true
+
+    ResponseSuccess:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              nullable: true
+              example: null
+
+    ResponseError:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            status:
+              example: "Error"
+            success:
+              example: false
+            data:
+              nullable: true
+              example: null
+
+    # ── App Settings ────────────────────────────────────────────────────────
+    AppSetting:
+      type: object
+      properties:
+        app_setting_id:
+          type: string
+          format: uuid
+        app_setting_key:
+          type: string
+          example: "TRANSFER_CATEGORY_ID"
+        app_setting_value:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        is_active:
+          type: integer
+          example: 1
+
+    ResponseAppSettings:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/AppSetting"
+
+    # ── Sources ─────────────────────────────────────────────────────────────
+    SourceInput:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          example: "BCA Savings"
+
+    Source:
+      type: object
+      properties:
+        source_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          example: "BCA Savings"
+        created_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        is_active:
+          type: integer
+          example: 1
+
+    SourceBalance:
+      type: object
+      properties:
+        source_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        total:
+          type: number
+          format: double
+          description: Total earnings minus total spendings for this source
+          example: 4850000.0
+
+    ResponseSource:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Source"
+
+    ResponseSources:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Source"
+
+    ResponseSourceBalance:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceBalance"
+
+    # ── Earnings ────────────────────────────────────────────────────────────
+    EarningInput:
+      type: object
+      required: [total_amount, description, earning_category_id, earning_category, source_id, source]
+      properties:
+        total_amount:
+          type: number
+          format: double
+          example: 5000000
+        description:
+          type: string
+          example: "Monthly salary"
+        earning_category_id:
+          type: string
+          format: uuid
+        earning_category:
+          type: string
+          example: "Salary"
+        source_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          example: "BCA Savings"
+
+    Earning:
+      allOf:
+        - $ref: "#/components/schemas/EarningInput"
+        - type: object
+          properties:
+            earning_id:
+              type: string
+              format: uuid
+            created_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ResponseEarning:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Earning"
+
+    ResponseEarnings:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Earning"
+
+    # ── Earning Categories ──────────────────────────────────────────────────
+    EarningCategoryInput:
+      type: object
+      required: [earning_category]
+      properties:
+        earning_category:
+          type: string
+          example: "Salary"
+
+    EarningCategory:
+      type: object
+      properties:
+        earning_category_id:
+          type: string
+          format: uuid
+        earning_category:
+          type: string
+          example: "Salary"
+        created_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        is_active:
+          type: integer
+          example: 1
+
+    ResponseEarningCategory:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/EarningCategory"
+
+    ResponseEarningCategories:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/EarningCategory"
+
+    # ── Spendings ───────────────────────────────────────────────────────────
+    SpendingInput:
+      type: object
+      required: [total_amount, description, spending_category_id, spending_category, source_id, source]
+      properties:
+        total_amount:
+          type: number
+          format: double
+          example: 150000
+        description:
+          type: string
+          example: "Groceries"
+        spending_category_id:
+          type: string
+          format: uuid
+        spending_category:
+          type: string
+          example: "Food"
+        source_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          example: "BCA Savings"
+
+    Spending:
+      allOf:
+        - $ref: "#/components/schemas/SpendingInput"
+        - type: object
+          properties:
+            spending_id:
+              type: string
+              format: uuid
+            created_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ResponseSpending:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Spending"
+
+    ResponseSpendings:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Spending"
+
+    # ── Spending Categories ─────────────────────────────────────────────────
+    SpendingCategoryInput:
+      type: object
+      required: [spending_category]
+      properties:
+        spending_category:
+          type: string
+          example: "Food"
+
+    SpendingCategory:
+      type: object
+      properties:
+        spending_category_id:
+          type: string
+          format: uuid
+        spending_category:
+          type: string
+          example: "Food"
+        created_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        is_active:
+          type: integer
+          example: 1
+
+    ResponseSpendingCategory:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SpendingCategory"
+
+    ResponseSpendingCategories:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/SpendingCategory"
+
+    # ── Debts ───────────────────────────────────────────────────────────────
+    DebtInput:
+      type: object
+      required: [amount, description, debt_type]
+      properties:
+        amount:
+          type: number
+          format: double
+          example: 200000
+        description:
+          type: string
+          example: "Lent to friend"
+        debt_type:
+          type: integer
+          description: "1 = Kredit/Piutang (lent out), 2 = Debit/Hutang (borrowed)"
+          enum: [1, 2]
+        debt_earning_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required when debt_type = 1
+        debt_spending_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required when debt_type = 2
+
+    DebtStatusUpdate:
+      type: object
+      required: [debt_id]
+      properties:
+        debt_id:
+          type: string
+          description: UUID string of the debt to update
+        status:
+          type: integer
+          example: 2
+        debt_earning_id:
+          type: string
+          nullable: true
+        debt_spending_id:
+          type: string
+          nullable: true
+
+    Debt:
+      type: object
+      properties:
+        debt_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+        debt_type:
+          type: integer
+          enum: [1, 2]
+        debt_earning_id:
+          type: string
+          format: uuid
+          nullable: true
+        debt_spending_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: integer
+          example: 1
+        created_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        is_active:
+          type: integer
+          example: 1
+
+    ResponseDebt:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Debt"
+
+    ResponseDebts:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Debt"
