@@ -1,17 +1,11 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest};
-use jsonwebtoken::{decode, DecodingKey, Validation};
-use serde::{Deserialize, Serialize};
-use std::env;
-use mysql::prelude::Queryable;
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
+use chrono::NaiveDateTime;
 use mysql::params;
+use mysql::prelude::Queryable;
+use serde::{Deserialize, Serialize};
 
 use crate::helper::connection::establish_connection_v2;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Claims {
-    pub sub: String,
-    pub exp: usize,
-}
+use crate::helper::jwt::{decode_username, extract_bearer_token};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FlutterSource {
@@ -58,19 +52,8 @@ pub struct FlutterSyncResponse {
 
 fn extract_username(req: &HttpRequest) -> Option<String> {
     let auth_header = req.headers().get("Authorization")?.to_str().ok()?;
-    if !auth_header.starts_with("Bearer ") {
-        return None;
-    }
-    let token = &auth_header[7..];
-    let secret = env::var("JWT_SECRET").unwrap_or_else(|_| "secret".to_string());
-    
-    let token_data = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(secret.as_ref()),
-        &Validation::default()
-    ).ok()?;
-    
-    Some(token_data.claims.sub)
+    let token = extract_bearer_token(auth_header)?;
+    decode_username(token).ok()
 }
 
 pub async fn get_sync(req: HttpRequest) -> impl Responder {
@@ -85,23 +68,25 @@ pub async fn get_sync(req: HttpRequest) -> impl Responder {
     };
 
     let mut sources = Vec::new();
-    let db_sources: Vec<(String, String, Option<String>)> = conn.exec(
-        "SELECT source_id, source, created_date FROM source WHERE created_by = :username",
-        params! { "username" => &username }
-    ).unwrap_or_default();
-    
+    let db_sources: Vec<(String, String, NaiveDateTime)> = conn
+        .exec(
+            "SELECT source_id, source, created_date FROM source WHERE created_by = :username",
+            params! { "username" => &username },
+        )
+        .unwrap_or_default();
+
     for (id, name, created_date) in db_sources {
         sources.push(FlutterSource {
             id,
             name,
             kind: "source".to_string(),
             syncState: "done".to_string(),
-            updatedAt: created_date.unwrap_or_else(|| "".to_string()),
+            updatedAt: created_date.to_string(),
         });
     }
 
     let mut categories = Vec::new();
-    let db_earning_cats: Vec<(String, String, Option<String>)> = conn.exec(
+    let db_earning_cats: Vec<(String, String, NaiveDateTime)> = conn.exec(
         "SELECT earning_category_id, earning_category, created_date FROM earning_category WHERE created_by = :username",
         params! { "username" => &username }
     ).unwrap_or_default();
@@ -111,11 +96,11 @@ pub async fn get_sync(req: HttpRequest) -> impl Responder {
             name,
             kind: "earning".to_string(),
             syncState: "done".to_string(),
-            updatedAt: created_date.unwrap_or_else(|| "".to_string()),
+            updatedAt: created_date.to_string(),
         });
     }
-    
-    let db_spending_cats: Vec<(String, String, Option<String>)> = conn.exec(
+
+    let db_spending_cats: Vec<(String, String, NaiveDateTime)> = conn.exec(
         "SELECT spending_category_id, spending_category, created_date FROM spending_category WHERE created_by = :username",
         params! { "username" => &username }
     ).unwrap_or_default();
@@ -125,17 +110,17 @@ pub async fn get_sync(req: HttpRequest) -> impl Responder {
             name,
             kind: "spending".to_string(),
             syncState: "done".to_string(),
-            updatedAt: created_date.unwrap_or_else(|| "".to_string()),
+            updatedAt: created_date.to_string(),
         });
     }
 
     let mut transactions = Vec::new();
-    let db_earnings: Vec<(String, f64, String, String, String, Option<String>)> = conn.exec(
+    let db_earnings: Vec<(String, f64, String, String, String, NaiveDateTime)> = conn.exec(
         "SELECT earning_id, total_amount, description, earning_category_id, source_id, created_date FROM earning WHERE created_by = :username",
         params! { "username" => &username }
     ).unwrap_or_default();
     for (id, amount, description, cat_id, src_id, created_date) in db_earnings {
-        let date = created_date.unwrap_or_else(|| "".to_string());
+        let date = created_date.to_string();
         transactions.push(FlutterTransaction {
             id,
             r#type: "earning".to_string(),
@@ -151,12 +136,12 @@ pub async fn get_sync(req: HttpRequest) -> impl Responder {
         });
     }
 
-    let db_spendings: Vec<(String, f64, String, String, String, Option<String>)> = conn.exec(
+    let db_spendings: Vec<(String, f64, String, String, String, NaiveDateTime)> = conn.exec(
         "SELECT spending_id, total_amount, description, spending_category_id, source_id, created_date FROM spending WHERE created_by = :username",
         params! { "username" => &username }
     ).unwrap_or_default();
     for (id, amount, description, cat_id, src_id, created_date) in db_spendings {
-        let date = created_date.unwrap_or_else(|| "".to_string());
+        let date = created_date.to_string();
         transactions.push(FlutterTransaction {
             id,
             r#type: "spending".to_string(),
@@ -197,9 +182,9 @@ pub async fn post_sync_push(req: HttpRequest, body: web::Json<SyncPushRequest>) 
         Some(u) => u,
         None => return HttpResponse::Unauthorized().json("Invalid or missing token"),
     };
-    
+
     // In a full implementation, we map `body.queue` to the correct DB insert/delete statements
     // here. For now, we return Ok to acknowledge the sync push.
-    
+
     HttpResponse::Ok().json("Synced successfully")
 }

@@ -1,10 +1,13 @@
 use actix_web::{
+    Error, HttpMessage, HttpResponse,
+    body::EitherBody,
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    HttpMessage,
-    Error,
 };
-use futures_util::future::{ok, LocalBoxFuture, Ready};
+use futures_util::future::{LocalBoxFuture, Ready, ok};
 use std::rc::Rc;
+
+use crate::helper::jwt::{decode_username, extract_bearer_token};
+use crate::models::responses::Response;
 
 #[derive(Clone, Debug)]
 pub struct CreatedBy(pub String);
@@ -16,7 +19,7 @@ where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type Transform = CreatedByMiddlewareService<S>;
     type InitError = ();
@@ -38,26 +41,50 @@ where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     B: 'static,
 {
-    
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+    fn poll_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
-        
+        let username = req
+            .headers()
+            .get("Authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(extract_bearer_token)
+            .and_then(|token| decode_username(token).ok());
+
         Box::pin(async move {
-            if let Some(created_by) = req.match_info().get("created_by") {
-                // Store it for handlers
-                req.extensions_mut()
-                    .insert(CreatedBy(created_by.to_string()));
+            match username {
+                Some(username) => {
+                    req.extensions_mut().insert(CreatedBy(username));
+                    let response = srv.call(req).await?;
+                    Ok(response.map_into_left_body())
+                }
+                None => {
+                    let (http_req, _) = req.into_parts();
+                    let response = HttpResponse::Unauthorized().json(Response {
+                        status: "Error".to_string(),
+                        code: 401,
+                        message: "Unauthorized".to_string(),
+                        description: "Missing, malformed, invalid, or expired bearer token"
+                            .to_string(),
+                        data: None,
+                        success: false,
+                    });
+                    Ok(ServiceResponse::new(
+                        http_req,
+                        response.map_into_right_body(),
+                    ))
+                }
             }
-           
-            srv.call(req).await
         })
     }
 }

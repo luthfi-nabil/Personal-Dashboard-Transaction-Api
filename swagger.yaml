@@ -5,8 +5,8 @@ info:
     Personal finance transaction API built with Actix-Web (Rust) and SQLite.
     Manages sources (wallets/accounts), earnings, spendings, debts, and app settings.
     
-    All user-specific endpoints are scoped under `/api/user/{created_by}` and require
-    the `created_by` path parameter as the user identifier.
+    All user-specific endpoints are scoped under `/api/user` and require a bearer JWT.
+    The validated token's `sub` claim is used as the `created_by` user identifier.
   version: 2.0.0
   contact:
     name: Transaction API
@@ -14,6 +14,9 @@ info:
 servers:
   - url: http://127.0.0.1:3000
     description: Local development server
+
+security:
+  - bearerAuth: []
 
 tags:
   - name: Settings
@@ -39,6 +42,7 @@ paths:
   # ── Global Settings ──────────────────────────────────────────────────────
   /api/settings:
     get:
+      security: []
       tags: [Settings]
       summary: Get all app settings (public)
       operationId: getSettingsPublic
@@ -51,13 +55,11 @@ paths:
                 $ref: "#/components/schemas/ResponseAppSettings"
 
   # ── User Settings ─────────────────────────────────────────────────────────
-  /api/user/{created_by}/settings:
+  /api/user/settings:
     get:
       tags: [Settings]
       summary: Get all app settings (user-scoped)
       operationId: getSettingsUser
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       responses:
         "200":
           description: Settings retrieved
@@ -67,13 +69,11 @@ paths:
                 $ref: "#/components/schemas/ResponseAppSettings"
 
   # ── Sources ──────────────────────────────────────────────────────────────
-  /api/user/{created_by}/source:
+  /api/user/source:
     get:
       tags: [Sources]
       summary: Get all sources
       operationId: getSources
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       responses:
         "200":
           description: Sources retrieved
@@ -88,8 +88,6 @@ paths:
       tags: [Sources]
       summary: Create a new source
       operationId: createSource
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -114,13 +112,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/user/{created_by}/source/{source}:
+  /api/user/source/{source}:
     delete:
       tags: [Sources]
       summary: Delete a source by ID
       operationId: deleteSource
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: source
           in: path
           required: true
@@ -138,13 +135,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/user/{created_by}/source-balance:
+  /api/user/source-balance:
     get:
       tags: [Sources]
       summary: Get balance per source (earnings - spendings)
       operationId: getSourceBalance
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       responses:
         "200":
           description: Source balances retrieved
@@ -154,13 +149,12 @@ paths:
                 $ref: "#/components/schemas/ResponseSourceBalance"
 
   # ── Earnings ─────────────────────────────────────────────────────────────
-  /api/user/{created_by}/earnings:
+  /api/user/earnings:
     get:
       tags: [Earnings]
       summary: Get all earnings (with optional filters)
       operationId: getEarnings
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: description
           in: query
           schema: { type: string }
@@ -202,8 +196,6 @@ paths:
       tags: [Earnings]
       summary: Create a new earning transaction
       operationId: createEarning
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -232,13 +224,11 @@ paths:
                 $ref: "#/components/schemas/ResponseError"
 
   # ── Earning Categories ────────────────────────────────────────────────────
-  /api/user/{created_by}/earning-categories:
+  /api/user/earning-categories:
     get:
       tags: [Earning Categories]
       summary: Get all earning categories
       operationId: getEarningCategories
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       responses:
         "200":
           description: Categories retrieved
@@ -253,8 +243,6 @@ paths:
       tags: [Earning Categories]
       summary: Create a new earning category
       operationId: createEarningCategory
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -279,13 +267,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/user/{created_by}/earning-categories/{category}:
+  /api/user/earning-categories/{category}:
     delete:
       tags: [Earning Categories]
       summary: Delete an earning category by UUID
       operationId: deleteEarningCategory
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: category
           in: path
           required: true
@@ -304,13 +291,12 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ── Spendings ─────────────────────────────────────────────────────────────
-  /api/user/{created_by}/spendings:
+  /api/user/spendings:
     get:
       tags: [Spendings]
       summary: Get all spendings (with optional filters)
       operationId: getSpendings
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: description
           in: query
           schema: { type: string }
@@ -352,8 +338,6 @@ paths:
       tags: [Spendings]
       summary: Create a new spending transaction
       operationId: createSpending
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -382,13 +366,11 @@ paths:
                 $ref: "#/components/schemas/ResponseError"
 
   # ── Spending Categories ───────────────────────────────────────────────────
-  /api/user/{created_by}/spending-categories:
+  /api/user/spending-categories:
     get:
       tags: [Spending Categories]
       summary: Get all spending categories
       operationId: getSpendingCategories
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       responses:
         "200":
           description: Categories retrieved
@@ -403,8 +385,6 @@ paths:
       tags: [Spending Categories]
       summary: Create a new spending category
       operationId: createSpendingCategory
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -423,13 +403,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/user/{created_by}/spending-categories/{category}:
+  /api/user/spending-categories/{category}:
     delete:
       tags: [Spending Categories]
       summary: Delete a spending category by name
       operationId: deleteSpendingCategory
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: category
           in: path
           required: true
@@ -447,13 +426,12 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ── Debts ─────────────────────────────────────────────────────────────────
-  /api/user/{created_by}/debt:
+  /api/user/debt:
     get:
       tags: [Debts]
       summary: Get all debts (with optional filters)
       operationId: getDebts
       parameters:
-        - $ref: "#/components/parameters/CreatedBy"
         - name: debt_id
           in: query
           schema: { type: string }
@@ -491,8 +469,6 @@ paths:
         Creates a debt linked to an existing transaction.
         - `debt_type = 1` (Kredit/Piutang): must reference a valid `debt_earning_id`
         - `debt_type = 2` (Debit/Hutang): must reference a valid `debt_spending_id`
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -530,13 +506,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResponseError"
 
-  /api/user/{created_by}/debt-status:
+  /api/user/debt-status:
     put:
       tags: [Debts]
       summary: Update debt status (mark as settled)
       operationId: updateDebtStatus
-      parameters:
-        - $ref: "#/components/parameters/CreatedBy"
       requestBody:
         required: true
         content:
@@ -569,15 +543,11 @@ paths:
 # ─────────────────────────────────────────────────────────────────────────────
 components:
 
-  parameters:
-    CreatedBy:
-      name: created_by
-      in: path
-      required: true
-      description: User identifier (username or ID)
-      schema:
-        type: string
-      example: "luthfi"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
   responses:
     InternalError:
