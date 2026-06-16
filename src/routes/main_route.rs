@@ -33,7 +33,6 @@ pub fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/api/user")
             .wrap(CreatedByMiddleware)
-            .route("/settings", web::get().to(get_all_sources_api_v2))
             .route("/source", web::get().to(get_all_sources_api_v2))
             .route("/source-balance", web::get().to(get_all_source_balance))
             .route("/source", web::post().to(post_source_api_v2))
