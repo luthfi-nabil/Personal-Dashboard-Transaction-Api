@@ -26,8 +26,6 @@ signed `sub` claim as `created_by`.
 
 - **Actix-Web 4** — HTTP server/routing
 - **MySQL/MariaDB** (via the `mysql` crate) — primary datastore
-- **rusqlite** — present as a dependency (legacy `transaction.db`), the active
-  code path uses MySQL via `establish_connection_v2`
 - **actix-cors** — CORS (required for the Flutter web app / browser preflight requests)
 - **tracing** + **tracing-appender** — daily-rotating request logs under `logs/`
 - **jsonwebtoken** / **bcrypt** — used by the Flutter sync JWT flow

@@ -1,4 +1,3 @@
-use rusqlite::{Result};
 use mysql::*;
 use std::env;
 
