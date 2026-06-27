@@ -1,9 +1,9 @@
 use actix_web::{
+    Error, HttpResponse,
     body::{EitherBody, MessageBody},
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpResponse,
 };
-use futures_util::future::{ok, LocalBoxFuture, Ready};
+use futures_util::future::{LocalBoxFuture, Ready, ok};
 use std::rc::Rc;
 
 use crate::models::responses::Response;
@@ -41,11 +41,13 @@ where
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+    fn poll_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
-    
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let srv = self.service.clone();
 
@@ -61,7 +63,7 @@ where
             if !status.is_client_error() && !status.is_server_error() {
                 return Ok(ServiceResponse::new(req, res.map_into_left_body()));
             }
-            
+
             // Check Content-Type
             let has_json_body = res
                 .headers()
@@ -78,10 +80,7 @@ where
             // Otherwise, fallback JSON error
             let json = HttpResponse::build(status).json(Response {
                 success: false,
-                message: status
-                    .canonical_reason()
-                    .unwrap_or("Error")
-                    .to_string(),
+                message: status.canonical_reason().unwrap_or("Error").to_string(),
                 code: status.as_u16(),
                 data: None,
                 description: String::new(),

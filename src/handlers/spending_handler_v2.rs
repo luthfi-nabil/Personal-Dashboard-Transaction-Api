@@ -1,19 +1,25 @@
-use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{Local};
-use uuid::Uuid;
-use crate::models::source::{SourceV2};
-use crate::models::spending::{SpendingV2, SpendingParam, SpendingCategoryV2};
-use crate::models::app_setting::{AppSettings};
-use crate::models::responses::{Response};
-use crate::helper::connection::{establish_connection_v2};
-use crate::repository::source_repository_v2::{select_source};
-use crate::repository::spending_repository_v2::{select_all_spending_categories, insert_spending, select_spendings, select_spending_category, delete_spending_category, insert_spending_category};
+use crate::helper::connection::establish_connection_v2;
+use crate::models::app_setting::AppSettings;
+use crate::models::responses::Response;
+use crate::models::source::SourceV2;
+use crate::models::spending::{SpendingCategoryV2, SpendingParam, SpendingV2};
+use crate::repository::app_setting_repository::select_all_settings;
+use crate::repository::source_repository_v2::select_source;
+use crate::repository::spending_repository_v2::{
+    delete_spending_category, insert_spending, insert_spending_category,
+    select_all_spending_categories, select_spending_category, select_spendings,
+};
 use crate::route_middleware::get_user::CreatedBy;
-use crate::repository::app_setting_repository::{select_all_settings};
-pub async fn get_all_spendings_api_v2(req: HttpRequest,query: web::Query<SpendingParam>) -> HttpResponse {
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
+use chrono::Local;
+use uuid::Uuid;
+pub async fn get_all_spendings_api_v2(
+    req: HttpRequest,
+    query: web::Query<SpendingParam>,
+) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
-    
+
     let _result = select_spendings(&mut conn, &query, Some(created_by));
 
     match _result {
@@ -24,10 +30,10 @@ pub async fn get_all_spendings_api_v2(req: HttpRequest,query: web::Query<Spendin
                 message: "Success get sources".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(sources).unwrap()),
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -35,7 +41,7 @@ pub async fn get_all_spendings_api_v2(req: HttpRequest,query: web::Query<Spendin
                 message: "Failed to retrieve sources".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
         }
@@ -45,14 +51,17 @@ pub async fn get_all_spendings_api_v2(req: HttpRequest,query: web::Query<Spendin
 pub async fn get_all_spending_categories_api_v2(req: HttpRequest) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
-    
-    match select_all_spending_categories(&mut conn, &SpendingCategoryV2 {
-        spending_category_id: Uuid::nil(),
-        spending_category: "".to_string(),
-        created_date: Local::now().naive_local(),
-        created_by: created_by.clone(),
-        is_active: 1
-    }) {
+
+    match select_all_spending_categories(
+        &mut conn,
+        &SpendingCategoryV2 {
+            spending_category_id: Uuid::nil(),
+            spending_category: "".to_string(),
+            created_date: Local::now().naive_local(),
+            created_by: created_by.clone(),
+            is_active: 1,
+        },
+    ) {
         Ok(categories) => {
             let response = Response {
                 status: "Success".to_string(),
@@ -60,7 +69,7 @@ pub async fn get_all_spending_categories_api_v2(req: HttpRequest) -> HttpRespons
                 message: "Success get spending categories".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(categories).unwrap()),
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
         }
@@ -71,14 +80,17 @@ pub async fn get_all_spending_categories_api_v2(req: HttpRequest) -> HttpRespons
                 message: "Failed to retrieve spending categories".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
 }
 
-pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<SpendingV2>) -> HttpResponse {
+pub async fn post_spending_api_v2(
+    req: HttpRequest,
+    spending: web::Json<SpendingV2>,
+) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
     let mut new_spending = SpendingV2 {
@@ -91,15 +103,15 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         source: spending.source.clone(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
-    
+
     let source = SourceV2 {
         source_id: new_spending.source_id,
         source: "".to_string(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
 
     let category = SpendingCategoryV2 {
@@ -107,9 +119,9 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         spending_category: "".to_string(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
-    
+
     let _check_source = select_source(&mut conn, &source);
     let _check_category = select_spending_category(&mut conn, &category);
     // If transfer, get transfer category from app settings
@@ -117,9 +129,12 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         app_setting_id: Uuid::nil(),
         app_setting_key: "".to_string(),
         app_setting_value: "".to_string(),
-        is_active: 1
+        is_active: 1,
     };
-    println!("Debug: Checking source and category existence {}", _check_category.as_ref().unwrap().len() == 0);
+    println!(
+        "Debug: Checking source and category existence {}",
+        _check_category.as_ref().unwrap().len() == 0
+    );
     let _get_app_setting = select_all_settings(&mut conn, &app_setting);
     let mut settings_bypass = false;
     if _get_app_setting.is_ok() {
@@ -131,31 +146,39 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         let mut debt_category_name = String::new();
         for setting in _get_app_setting.unwrap() {
             if setting.app_setting_key == "TRANSFER_CATEGORY_ID" {
-                transfer_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            }else if setting.app_setting_key == "TRANSFER_CATEGORY_NAME" {
+                transfer_category_id =
+                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
+            } else if setting.app_setting_key == "TRANSFER_CATEGORY_NAME" {
                 transfer_category_name = setting.app_setting_value.clone();
-            }   
+            }
             if setting.app_setting_key == "RECOUNT_CATEGORY_ID" {
-                recount_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            }else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
+                recount_category_id =
+                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
+            } else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
                 recount_category_name = setting.app_setting_value.clone();
             }
             if setting.app_setting_key == "DEBT_CATEGORY_ID" {
-                debt_category_id = Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            }else if setting.app_setting_key == "DEBT_CATEGORY_NAME" {
+                debt_category_id =
+                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
+            } else if setting.app_setting_key == "DEBT_CATEGORY_NAME" {
                 debt_category_name = setting.app_setting_value.clone();
             }
         }
-        if transfer_category_id != Uuid::nil() && transfer_category_id == new_spending.spending_category_id {
-            new_spending.spending_category = transfer_category_name.clone(); 
+        if transfer_category_id != Uuid::nil()
+            && transfer_category_id == new_spending.spending_category_id
+        {
+            new_spending.spending_category = transfer_category_name.clone();
             settings_bypass = true;
         }
-        if recount_category_id != Uuid::nil() && recount_category_id == new_spending.spending_category_id {
-            new_spending.spending_category = recount_category_name.clone(); 
+        if recount_category_id != Uuid::nil()
+            && recount_category_id == new_spending.spending_category_id
+        {
+            new_spending.spending_category = recount_category_name.clone();
             settings_bypass = true;
         }
-        if debt_category_id != Uuid::nil() && debt_category_id == new_spending.spending_category_id {
-            new_spending.spending_category = debt_category_name.clone(); 
+        if debt_category_id != Uuid::nil() && debt_category_id == new_spending.spending_category_id
+        {
+            new_spending.spending_category = debt_category_name.clone();
             settings_bypass = true;
         }
     }
@@ -165,11 +188,15 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
         message: "Spending category created successfully".to_string(),
         description: "".to_string(),
         data: None,
-        success: true
+        success: true,
     };
-    if _check_source.is_ok() && _check_category.is_ok() && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass) && _check_source.as_ref().unwrap().len() > 0 {
-        let _result  = insert_spending(&mut conn, &new_spending);
-        
+    if _check_source.is_ok()
+        && _check_category.is_ok()
+        && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass)
+        && _check_source.as_ref().unwrap().len() > 0
+    {
+        let _result = insert_spending(&mut conn, &new_spending);
+
         if _result.is_err() {
             response = Response {
                 status: "Error".to_string(),
@@ -177,12 +204,12 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 description: _result.err().unwrap().to_string(),
                 data: None,
-                success: false
+                success: false,
             };
-        }else{
+        } else {
             response.data = Some(serde_json::to_value(new_spending).unwrap());
         }
-    }else{
+    } else {
         if _check_category.is_err() {
             response = Response {
                 status: "Error".to_string(),
@@ -190,47 +217,49 @@ pub async fn post_spending_api_v2(req: HttpRequest, spending: web::Json<Spending
                 message: "Failed to create spending [Category]".to_string(),
                 description: _check_category.err().unwrap().to_string(),
                 data: None,
-                success: false
+                success: false,
             };
-        }else if _check_category.as_ref().unwrap().len() == 0 {
+        } else if _check_category.as_ref().unwrap().len() == 0 {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Spending category not found".to_string(),
                 description: "Please create the spending category first.".to_string(),
                 data: None,
-                success: false
+                success: false,
             };
-        }else if _check_source.is_err() {
+        } else if _check_source.is_err() {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Failed to create spending [Source]".to_string(),
                 description: _check_source.err().unwrap().to_string(),
                 data: None,
-                success: false
+                success: false,
             };
-        }else if _check_source.as_ref().unwrap().len() == 0 {
+        } else if _check_source.as_ref().unwrap().len() == 0 {
             response = Response {
                 status: "Error".to_string(),
                 code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
                 message: "Source not found".to_string(),
                 description: "Please create the source first.".to_string(),
                 data: None,
-                success: false
+                success: false,
             };
         }
     }
     if response.code == crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS {
         HttpResponse::Created().json(response)
-    }else{
+    } else {
         response.success = false;
         HttpResponse::BadRequest().json(response)
     }
-    
 }
 
-pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json<SpendingCategoryV2>) -> HttpResponse {
+pub async fn post_spending_category_api_v2(
+    req: HttpRequest,
+    category: web::Json<SpendingCategoryV2>,
+) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
     let new_category = SpendingCategoryV2 {
@@ -238,10 +267,10 @@ pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json
         spending_category: category.spending_category.clone(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
-    
-    let _result  = insert_spending_category(&mut conn, &new_category);
+
+    let _result = insert_spending_category(&mut conn, &new_category);
 
     match _result {
         Ok(_) => {
@@ -251,10 +280,10 @@ pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json
                 message: "Spending category inserted successfully".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(new_category).unwrap()),
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -262,15 +291,17 @@ pub async fn post_spending_category_api_v2(req: HttpRequest, category: web::Json
                 message: "Failed to insert spending category".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
         }
     }
-    
 }
 
-pub async fn delete_spending_category_api_v2(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+pub async fn delete_spending_category_api_v2(
+    req: HttpRequest,
+    path: web::Path<String>,
+) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
     let spending_category_name = path.into_inner();
@@ -279,7 +310,7 @@ pub async fn delete_spending_category_api_v2(req: HttpRequest, path: web::Path<S
         spending_category: spending_category_name,
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
     let result = delete_spending_category(&mut conn, &spending_category);
 
@@ -291,10 +322,10 @@ pub async fn delete_spending_category_api_v2(req: HttpRequest, path: web::Path<S
                 message: "Success delete spending category".to_string(),
                 description: "".to_string(),
                 data: None,
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -302,9 +333,9 @@ pub async fn delete_spending_category_api_v2(req: HttpRequest, path: web::Path<S
                 message: "Failed to delete spending category".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
-        },
+        }
     }
 }

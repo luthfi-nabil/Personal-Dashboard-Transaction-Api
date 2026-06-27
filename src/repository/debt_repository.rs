@@ -1,11 +1,11 @@
-use mysql::{Result, PooledConn, params, Error as MysqlError};
-use mysql::prelude::*;
-use chrono::{NaiveDateTime};
 use crate::models::debt::{Debt, DebtParam};
-use crate::models::responses::{DatabaseResult};
-use crate::models::earning::{EarningV2, EarningCategoryV2,EarningParam};
-use uuid::Uuid;
+use crate::models::earning::{EarningCategoryV2, EarningParam, EarningV2};
+use crate::models::responses::DatabaseResult;
+use chrono::NaiveDateTime;
+use mysql::prelude::*;
+use mysql::{Error as MysqlError, PooledConn, Result, params};
 use std::error::Error;
+use uuid::Uuid;
 
 pub fn create_debt_table(conn: &mut PooledConn) -> Result<()> {
     conn.query_drop(
@@ -25,56 +25,62 @@ pub fn create_debt_table(conn: &mut PooledConn) -> Result<()> {
     Ok(())
 }
 
-pub fn select_debt(conn: &mut PooledConn, param: &DebtParam, created_by: Option<String>) -> Result<Vec<Debt>, Box<dyn Error>> {
-    let mut query = String::from("SELECT description, debt_type, amount, debt_earning_id, debt_spending_id, status, created_date, created_by, is_active FROM debt");
+pub fn select_debt(
+    conn: &mut PooledConn,
+    param: &DebtParam,
+    created_by: Option<String>,
+) -> Result<Vec<Debt>, Box<dyn Error>> {
+    let mut query = String::from(
+        "SELECT description, debt_type, amount, debt_earning_id, debt_spending_id, status, created_date, created_by, is_active FROM debt",
+    );
     query.push_str(" where is_active = 1");
     let mut params: Vec<mysql::Value> = Vec::new();
 
     match &param.debt_earning_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and upper(debt_earning_id) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.debt_spending_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and upper(debt_spending_id) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.debt_type {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and debt_type = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &param.status {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and status = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &param.debt_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and debt_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &created_by {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and created_by = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
@@ -91,22 +97,21 @@ pub fn select_debt(conn: &mut PooledConn, param: &DebtParam, created_by: Option<
             status,
             created_date,
             created_by,
-            is_active
+            is_active,
         ): (
-            String,          // debt_id (BINARY UUID)
-            f64,              // amount (DOUBLE)
-            String,   // description
-            i32,              // debt_type (INT)
-            String,          // debt_earning_id (BINARY UUID)
-            String,          // debt_spending_id (BINARY UUID)
-            i32,              // status (INT)
-            NaiveDateTime,    // created_date (DATETIME)
-            String,           // created_by
-            i32               // is_active (INT)
-        )|  {
+            String,        // debt_id (BINARY UUID)
+            f64,           // amount (DOUBLE)
+            String,        // description
+            i32,           // debt_type (INT)
+            String,        // debt_earning_id (BINARY UUID)
+            String,        // debt_spending_id (BINARY UUID)
+            i32,           // status (INT)
+            NaiveDateTime, // created_date (DATETIME)
+            String,        // created_by
+            i32,           // is_active (INT)
+        )| {
             Debt {
-                debt_id: Uuid::parse_str(&debt_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                debt_id: Uuid::parse_str(&debt_id).unwrap_or_else(|_| Uuid::nil()),
                 amount,
                 description,
                 debt_type,
@@ -160,10 +165,11 @@ pub fn update_debt(conn: &mut PooledConn, debt: &Debt) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-
-
 /// ✅ Soft delete (deactivate) an earning category
-pub fn delete_earning_category(conn: &mut PooledConn, category: &EarningCategoryV2) -> Result<(), Box<dyn Error>> {
+pub fn delete_earning_category(
+    conn: &mut PooledConn,
+    category: &EarningCategoryV2,
+) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
         "UPDATE earning_category SET is_active = 0 WHERE earning_category_id = :cat_id and created_by = :by",
         params! { "cat_id" => category.earning_category_id.to_string(), "by" => category.created_by.to_string() },

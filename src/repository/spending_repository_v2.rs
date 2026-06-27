@@ -1,9 +1,9 @@
-use mysql::*;
+use crate::models::spending::{SpendingCategoryV2, SpendingParam, SpendingV2};
+use chrono::NaiveDateTime;
 use mysql::prelude::*;
-use chrono::{NaiveDateTime};
-use crate::models::spending::{SpendingV2, SpendingCategoryV2,SpendingParam};
-use uuid::Uuid;
+use mysql::*;
 use std::error::Error;
+use uuid::Uuid;
 pub fn create_spending_category_table(conn: &mut PooledConn) -> Result<()> {
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS spending_category (
@@ -12,7 +12,7 @@ pub fn create_spending_category_table(conn: &mut PooledConn) -> Result<()> {
             created_date DATETIME NOT NULL,
             created_by VARCHAR(255) NOT NULL,
             is_active INTEGER NOT NULL DEFAULT 1
-        )"
+        )",
     )?;
     Ok(())
 }
@@ -35,127 +35,137 @@ pub fn create_spending_table(conn: &mut PooledConn) -> Result<()> {
     Ok(())
 }
 
-pub fn select_spendings(conn: &mut PooledConn, param: &SpendingParam, created_by: Option<String>) -> Result<Vec<SpendingV2>, Box<dyn Error>> {
-    let mut query = String::from("SELECT spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by, is_active FROM spending");
+pub fn select_spendings(
+    conn: &mut PooledConn,
+    param: &SpendingParam,
+    created_by: Option<String>,
+) -> Result<Vec<SpendingV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        "SELECT spending_id, total_amount, description, spending_category_id, spending_category, source_id, source, created_date, created_by, is_active FROM spending",
+    );
     query.push_str(" where is_active = 1");
     let mut params: Vec<mysql::Value> = Vec::new();
     println!("Select Spending with params: {:?}", param);
     match &param.description {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and description like ?");
             params.push(("%".to_string() + val + "%").into());
-        },
+        }
         None => {}
     }
 
-     match &param.spending_category {
-        Some(val)=>{
+    match &param.spending_category {
+        Some(val) => {
             query.push_str(" and upper(spending_category) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.spending_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and spending_id = ?");
             params.push(val.to_string().into());
-        },
+        }
         None => {}
     }
 
     match &param.source {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and upper(source) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.spending_category_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and spending_category_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &param.source_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and source_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
-    
+
     match &param.month {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and MONTH(created_date) = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &created_by {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and created_by = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
     println!("Final Params: {:?}", params);
     let results: Vec<SpendingV2> = conn.exec_map(
-    query,
-    params,
-    |(
-        spending_id,
-        total_amount,
-        description,
-        spending_category_id,
-        spending_category,
-        source_id,
-        source,
-        created_date,
-        created_by,
-        is_active
-    ): (
-        String,          // spending_id (BINARY)
-        f64,              // total_amount
-        String,           // description (nullable safe)
-        String,          // spending_category_id
-        String,           // spending_category
-        String,           // source_id
-        String,           // source
-        NaiveDateTime,    // created_date
-        String,           // created_by
-        i32               // is_active
-    )| {
-        SpendingV2 {
-            spending_id: Uuid::parse_str(&spending_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+        query,
+        params,
+        |(
+            spending_id,
             total_amount,
             description,
-            spending_category_id: Uuid::parse_str(&spending_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+            spending_category_id,
             spending_category,
-            source_id: Uuid::parse_str(&source_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+            source_id,
             source,
             created_date,
             created_by,
             is_active,
-        }
-    })?;
+        ): (
+            String,        // spending_id (BINARY)
+            f64,           // total_amount
+            String,        // description (nullable safe)
+            String,        // spending_category_id
+            String,        // spending_category
+            String,        // source_id
+            String,        // source
+            NaiveDateTime, // created_date
+            String,        // created_by
+            i32,           // is_active
+        )| {
+            SpendingV2 {
+                spending_id: Uuid::parse_str(&spending_id).unwrap_or_else(|_| Uuid::nil()),
+                total_amount,
+                description,
+                spending_category_id: Uuid::parse_str(&spending_category_id)
+                    .unwrap_or_else(|_| Uuid::nil()),
+                spending_category,
+                source_id: Uuid::parse_str(&source_id).unwrap_or_else(|_| Uuid::nil()),
+                source,
+                created_date,
+                created_by,
+                is_active,
+            }
+        },
+    )?;
     Ok(results)
 }
 
 /// ✅ Select one spending category by ID
-pub fn select_spending_category(conn: &mut PooledConn, spending_category: &SpendingCategoryV2) -> Result<Vec<SpendingCategoryV2>, Box<dyn Error>> {
-    let mut query = String::from(r#"
+pub fn select_spending_category(
+    conn: &mut PooledConn,
+    spending_category: &SpendingCategoryV2,
+) -> Result<Vec<SpendingCategoryV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        r#"
         SELECT spending_category_id, spending_category, created_date, created_by, is_active
         FROM spending_category
         WHERE is_active = 1
-    "#);
+    "#,
+    );
     let mut params: Vec<mysql::Value> = Vec::new();
     if spending_category.spending_category_id != Uuid::nil() {
         query.push_str(" AND spending_category_id = ?");
@@ -169,10 +179,16 @@ pub fn select_spending_category(conn: &mut PooledConn, spending_category: &Spend
     let result: Vec<SpendingCategoryV2> = conn.exec_map(
         query,
         params,
-        |(spending_category_id, spending_category, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
+        |(spending_category_id, spending_category, created_date, created_by, is_active): (
+            String,
+            String,
+            NaiveDateTime,
+            String,
+            i32,
+        )| {
             SpendingCategoryV2 {
                 spending_category_id: Uuid::parse_str(&spending_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                    .unwrap_or_else(|_| Uuid::nil()),
                 spending_category: spending_category,
                 created_date: created_date,
                 created_by: created_by,
@@ -185,11 +201,16 @@ pub fn select_spending_category(conn: &mut PooledConn, spending_category: &Spend
 }
 
 /// ✅ Select one spending category by ID
-pub fn select_all_spending_categories(conn: &mut PooledConn, spending_category: &SpendingCategoryV2) -> Result<Vec<SpendingCategoryV2>, Box<dyn Error>> {
-    let mut query = String::from(r#"
+pub fn select_all_spending_categories(
+    conn: &mut PooledConn,
+    spending_category: &SpendingCategoryV2,
+) -> Result<Vec<SpendingCategoryV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        r#"
         SELECT spending_category_id, spending_category, created_date, created_by, is_active
         FROM spending_category WHERE is_active = 1
-    "#);
+    "#,
+    );
 
     let mut params: Vec<mysql::Value> = Vec::new();
     if spending_category.spending_category_id != Uuid::nil() {
@@ -205,10 +226,16 @@ pub fn select_all_spending_categories(conn: &mut PooledConn, spending_category: 
     let result: Vec<SpendingCategoryV2> = conn.exec_map(
         query,
         params,
-        |(spending_category_id, spending_category, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
+        |(spending_category_id, spending_category, created_date, created_by, is_active): (
+            String,
+            String,
+            NaiveDateTime,
+            String,
+            i32,
+        )| {
             SpendingCategoryV2 {
                 spending_category_id: Uuid::parse_str(&spending_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                    .unwrap_or_else(|_| Uuid::nil()),
                 spending_category: spending_category,
                 created_date: created_date,
                 created_by: created_by,
@@ -219,7 +246,6 @@ pub fn select_all_spending_categories(conn: &mut PooledConn, spending_category: 
 
     Ok(result)
 }
-
 
 /// ✅ Insert a new spending
 pub fn insert_spending(conn: &mut PooledConn, spending: &SpendingV2) -> Result<(), Box<dyn Error>> {
@@ -251,7 +277,10 @@ pub fn insert_spending(conn: &mut PooledConn, spending: &SpendingV2) -> Result<(
 }
 
 /// ✅ Insert a new spending category
-pub fn insert_spending_category(conn: &mut PooledConn, category: &SpendingCategoryV2) -> Result<(), Box<dyn Error>> {
+pub fn insert_spending_category(
+    conn: &mut PooledConn,
+    category: &SpendingCategoryV2,
+) -> Result<(), Box<dyn Error>> {
     let query = r#"
         INSERT INTO spending_category 
         (spending_category_id, spending_category, created_date, created_by, is_active)
@@ -282,10 +311,11 @@ pub fn delete_spending(conn: &mut PooledConn, spending_id: &str) -> Result<(), B
     Ok(())
 }
 
-
-
 /// ✅ Soft delete (deactivate) an spending category
-pub fn delete_spending_category(conn: &mut PooledConn, category: &SpendingCategoryV2) -> Result<(), Box<dyn Error>> {
+pub fn delete_spending_category(
+    conn: &mut PooledConn,
+    category: &SpendingCategoryV2,
+) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
         "UPDATE spending_category SET is_active = 0 WHERE spending_category_id = :cat AND created_by = :created_by",
         params! { "cat" => category.spending_category_id, "created_by" => category.created_by.to_string() },

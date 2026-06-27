@@ -1,11 +1,11 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{Utc, NaiveDateTime, DateTime};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Spending {
     #[serde(skip_deserializing)]
-    pub spending_id : Uuid, 
+    pub spending_id: Uuid,
     pub total_amount: f64,
     pub description: String,
     pub spending_category_id: Uuid,
@@ -17,13 +17,13 @@ pub struct Spending {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: i32
+    pub is_active: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SpendingV2 {
     #[serde(skip_deserializing)]
-    pub spending_id : Uuid, 
+    pub spending_id: Uuid,
     pub total_amount: f64,
     pub description: String,
     pub spending_category_id: Uuid,
@@ -35,7 +35,7 @@ pub struct SpendingV2 {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: i32
+    pub is_active: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,7 +48,7 @@ pub struct SpendingParam {
     pub month: Option<i32>,
     pub year: Option<i32>,
     pub day: Option<i32>,
-    pub spending_id: Option<Uuid>
+    pub spending_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,7 +61,7 @@ pub struct SpendingCategory {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: i32
+    pub is_active: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,5 +74,5 @@ pub struct SpendingCategoryV2 {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: i32
+    pub is_active: i32,
 }

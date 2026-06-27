@@ -8,6 +8,10 @@ use crate::handlers::earning_handler_v2::{
     post_earning_api_v2, post_earning_category_api_v2,
 };
 use crate::handlers::flutter_sync_handler::{get_sync, post_sync_push};
+use crate::handlers::routine_handler::{
+    delete_routine_api, get_routine_payments_api, get_routines_api, post_routine_api,
+    post_routine_payment_api,
+};
 use crate::handlers::source_handler_v2::{
     delete_source_api_v2, get_all_source_balance, get_all_sources_api_v2, post_source_api_v2,
 };
@@ -16,6 +20,11 @@ use crate::handlers::spending_handler_v2::{
     post_spending_api_v2, post_spending_category_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
+use crate::handlers::wishlist_handler::{
+    delete_planned_expense_api, delete_planned_expense_category_api,
+    get_planned_expense_categories_api, get_planned_expenses_api, post_planned_expense_api,
+    post_planned_expense_category_api, put_planned_expense_status_api,
+};
 use crate::route_middleware::get_user::CreatedByMiddleware;
 pub fn init(cfg: &mut web::ServiceConfig) {
     // ── Swagger UI (development only) ────────────────────────────────────────
@@ -68,7 +77,56 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route("/debt", web::get().to(get_debt))
             .route("/debt", web::post().to(post_debt_api))
             .route("/debt-status", web::put().to(update_debt_status))
-            .route("/settings", web::get().to(get_all_setting_api)),
+            .route("/settings", web::get().to(get_all_setting_api))
+            .route("/planned-expenses", web::get().to(get_planned_expenses_api))
+            .route(
+                "/planned-expenses",
+                web::post().to(post_planned_expense_api),
+            )
+            .route(
+                "/planned-expense-categories",
+                web::get().to(get_planned_expense_categories_api),
+            )
+            .route(
+                "/planned-expense-categories",
+                web::post().to(post_planned_expense_category_api),
+            )
+            .route(
+                "/planned-expense-categories/{category}",
+                web::delete().to(delete_planned_expense_category_api),
+            )
+            .route(
+                "/planned-expenses/{planned_expense_id}/status",
+                web::put().to(put_planned_expense_status_api),
+            )
+            .route(
+                "/planned-expenses/{planned_expense_id}",
+                web::delete().to(delete_planned_expense_api),
+            )
+            .route("/wishlist", web::get().to(get_planned_expenses_api))
+            .route("/wishlist", web::post().to(post_planned_expense_api))
+            .route(
+                "/wishlist/{wishlist_id}/status",
+                web::put().to(put_planned_expense_status_api),
+            )
+            .route(
+                "/wishlist/{wishlist_id}",
+                web::delete().to(delete_planned_expense_api),
+            )
+            .route("/routines", web::get().to(get_routines_api))
+            .route("/routines", web::post().to(post_routine_api))
+            .route(
+                "/routines/payments",
+                web::get().to(get_routine_payments_api),
+            )
+            .route(
+                "/routines/{routine_id}/payments",
+                web::post().to(post_routine_payment_api),
+            )
+            .route(
+                "/routines/{routine_id}",
+                web::delete().to(delete_routine_api),
+            ),
     );
     cfg.service(
         web::scope("/api/flutter")

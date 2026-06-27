@@ -1,9 +1,9 @@
-use actix_web::{HttpResponse};
-use uuid::Uuid;
+use crate::helper::connection::establish_connection_v2;
 use crate::models::app_setting;
-use crate::models::responses::{Response};
-use crate::helper::connection::{establish_connection_v2};
-use crate::repository::app_setting_repository::{select_all_settings};
+use crate::models::responses::Response;
+use crate::repository::app_setting_repository::select_all_settings;
+use actix_web::HttpResponse;
+use uuid::Uuid;
 
 pub async fn get_all_setting_api() -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
@@ -11,7 +11,7 @@ pub async fn get_all_setting_api() -> HttpResponse {
         app_setting_id: Uuid::nil(),
         app_setting_key: "".to_string(),
         app_setting_value: "".to_string(),
-        is_active: 1
+        is_active: 1,
     };
     let _result = select_all_settings(&mut conn, &app_setting);
 
@@ -23,10 +23,10 @@ pub async fn get_all_setting_api() -> HttpResponse {
                 message: "Success get settings".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(sources).unwrap()),
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -34,7 +34,7 @@ pub async fn get_all_setting_api() -> HttpResponse {
                 message: "Failed to retrieve settings".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
         }

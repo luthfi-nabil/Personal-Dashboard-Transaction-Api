@@ -33,6 +33,8 @@ tags:
     description: Categories for expenses
   - name: Debts
     description: Debt / receivable tracking
+  - name: Planned Expenses
+    description: Planned future spending or earning items
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PATHS
@@ -539,6 +541,166 @@ paths:
           $ref: "#/components/responses/InternalError"
 
 # ─────────────────────────────────────────────────────────────────────────────
+  # Planned Expenses
+  /api/user/planned-expenses:
+    get:
+      tags: [Planned Expenses]
+      summary: Get all planned expenses
+      operationId: getPlannedExpenses
+      responses:
+        "200":
+          description: Planned expenses retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsePlannedExpenses"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Planned Expenses]
+      summary: Create or update a planned expense
+      operationId: createPlannedExpense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedExpenseInput"
+            example:
+              planned_expense_id: "550e8400-e29b-41d4-a716-446655440099"
+              item_name: "New laptop"
+              price: 15000000
+              transaction_type: "spending"
+              category_id: "550e8400-e29b-41d4-a716-446655440002"
+              category: "Equipment"
+              notes: "Target for Q3"
+              priority: "high"
+      responses:
+        "200":
+          description: Planned expense saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsePlannedExpense"
+        "400":
+          description: Invalid planned expense type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/planned-expenses/{planned_expense_id}/status:
+    put:
+      tags: [Planned Expenses]
+      summary: Update planned expense status
+      operationId: updatePlannedExpenseStatus
+      parameters:
+        - name: planned_expense_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedExpenseStatusInput"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/planned-expenses/{planned_expense_id}:
+    delete:
+      tags: [Planned Expenses]
+      summary: Delete a planned expense
+      operationId: deletePlannedExpense
+      parameters:
+        - name: planned_expense_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Planned expense deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/planned-expense-categories:
+    get:
+      tags: [Planned Expenses]
+      summary: Get all planned expense categories
+      operationId: getPlannedExpenseCategories
+      responses:
+        "200":
+          description: Planned expense categories retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsePlannedExpenseCategories"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Planned Expenses]
+      summary: Create a planned expense category
+      operationId: createPlannedExpenseCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedExpenseCategoryInput"
+            example:
+              planned_expense_category: "Wishlist"
+      responses:
+        "200":
+          description: Planned expense category saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponsePlannedExpenseCategory"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/planned-expense-categories/{category}:
+    delete:
+      tags: [Planned Expenses]
+      summary: Delete a planned expense category
+      operationId: deletePlannedExpenseCategory
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Planned expense category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 # COMPONENTS
 # ─────────────────────────────────────────────────────────────────────────────
 components:
@@ -907,6 +1069,151 @@ components:
                 $ref: "#/components/schemas/SpendingCategory"
 
     # ── Debts ───────────────────────────────────────────────────────────────
+    # Planned Expenses
+    PlannedExpenseInput:
+      type: object
+      required: [item_name, price, priority]
+      properties:
+        planned_expense_id:
+          type: string
+          format: uuid
+          nullable: true
+        item_name:
+          type: string
+          example: "New laptop"
+        price:
+          type: number
+          format: double
+          example: 15000000
+        transaction_type:
+          type: string
+          enum: [spending, earning]
+          default: spending
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        category:
+          type: string
+          nullable: true
+          example: "Equipment"
+        notes:
+          type: string
+          nullable: true
+        priority:
+          type: string
+          enum: [high, medium, low]
+          example: high
+
+    PlannedExpenseStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, fulfilled, canceled]
+        fulfilled_price:
+          type: number
+          format: double
+          nullable: true
+
+    PlannedExpense:
+      allOf:
+        - $ref: "#/components/schemas/PlannedExpenseInput"
+        - type: object
+          properties:
+            planned_expense_id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [active, fulfilled, canceled]
+            fulfilled_price:
+              type: number
+              format: double
+              nullable: true
+            fulfilled_at:
+              type: string
+              format: date-time
+              nullable: true
+            canceled_at:
+              type: string
+              format: date-time
+              nullable: true
+            created_date:
+              type: string
+              format: date-time
+            updated_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ResponsePlannedExpense:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PlannedExpense"
+
+    ResponsePlannedExpenses:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlannedExpense"
+
+    PlannedExpenseCategoryInput:
+      type: object
+      required: [planned_expense_category]
+      properties:
+        planned_expense_category:
+          type: string
+          example: "Wishlist"
+
+    PlannedExpenseCategory:
+      type: object
+      properties:
+        planned_expense_category_id:
+          type: string
+          format: uuid
+        planned_expense_category:
+          type: string
+          example: "Wishlist"
+        created_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        is_active:
+          type: integer
+          example: 1
+
+    ResponsePlannedExpenseCategory:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PlannedExpenseCategory"
+
+    ResponsePlannedExpenseCategories:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlannedExpenseCategory"
+
     DebtInput:
       type: object
       required: [amount, description, debt_type]

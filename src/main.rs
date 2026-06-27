@@ -1,20 +1,20 @@
 mod handlers;
-mod models;
-mod routes;
-mod repository;
 mod helper;
+mod models;
+mod repository;
 mod route_middleware;
-use route_middleware::json_error::JsonErrorMiddleware;
+mod routes;
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, middleware::{Logger}};
+use actix_web::{App, HttpServer, middleware::Logger};
 use dotenv::dotenv;
+use route_middleware::json_error::JsonErrorMiddleware;
 use std::env;
-use tracing_subscriber::{fmt};
-use tracing_appender::rolling;
 use time::format_description::well_known::Rfc3339;
+use tracing_appender::rolling;
+use tracing_subscriber::fmt;
 
+use repository::init::init_create_table_v2;
 use routes::main_route::init;
-use repository::init::{init_create_table_v2};
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -35,11 +35,9 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(JsonErrorMiddleware)
-            .wrap(
-                Logger::new(
-                    r#"%t | %a | %r | %s | %b | %T | %{User-Agent}i"#,
-                )
-            )
+            .wrap(Logger::new(
+                r#"%t | %a | %r | %s | %b | %T | %{User-Agent}i"#,
+            ))
             // Outermost: handle CORS preflight (OPTIONS) before it can 404
             .wrap(Cors::permissive())
             .configure(init) // Initialize routes

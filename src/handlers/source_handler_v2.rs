@@ -1,13 +1,13 @@
-use actix_web::{web, HttpResponse, HttpRequest, HttpMessage};
-use chrono::{Local};
-use uuid::Uuid;
+use crate::helper::connection::establish_connection_v2;
+use crate::models::responses::{DatabaseResult, Response};
 use crate::models::source::{SourceBalance, SourceV2};
-use crate::models::responses::{Response, DatabaseResult};
-use crate::helper::connection::{establish_connection_v2};
-use crate::repository::source_repository_v2::{select_all_sources, insert_source, delete_source};
-use crate::repository::spending_repository_v2::{select_spendings};
-use crate::repository::earning_repository_v2::{select_earnings};
+use crate::repository::earning_repository_v2::select_earnings;
+use crate::repository::source_repository_v2::{delete_source, insert_source, select_all_sources};
+use crate::repository::spending_repository_v2::select_spendings;
 use crate::route_middleware::get_user::CreatedBy;
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
+use chrono::Local;
+use uuid::Uuid;
 
 pub async fn get_all_sources_api_v2(req: HttpRequest) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
@@ -17,7 +17,7 @@ pub async fn get_all_sources_api_v2(req: HttpRequest) -> HttpResponse {
         source: "".to_string(),
         created_date: Local::now().naive_local(),
         created_by: created_by,
-        is_active: 1
+        is_active: 1,
     };
     let _result = select_all_sources(&mut conn, &source_filter);
 
@@ -29,10 +29,10 @@ pub async fn get_all_sources_api_v2(req: HttpRequest) -> HttpResponse {
                 message: "Success get sources".to_string(),
                 description: "".to_string(),
                 data: Some(serde_json::to_value(sources).unwrap()),
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -40,7 +40,7 @@ pub async fn get_all_sources_api_v2(req: HttpRequest) -> HttpResponse {
                 message: "Failed to retrieve sources".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
         }
@@ -55,43 +55,55 @@ pub async fn get_all_source_balance(req: HttpRequest) -> HttpResponse {
         source: "".to_string(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
-    let _spending_result = select_spendings(&mut conn, &crate::models::spending::SpendingParam {
-        description: None,
-        spending_category_id: None,
-        spending_category: None,
-        source_id: None,
-        source: None,
-        month: None,
-        year: None,
-        day: None,
-        spending_id: None
-    }, Some(created_by.clone()));
-    let _earning_result = select_earnings(&mut conn, &crate::models::earning::EarningParam {
-        description: None,
-        earning_category_id: None,
-        earning_category: None,
-        source_id: None,
-        source: None,
-        month: None,
-        year: None,
-        day: None,
-        earning_id: None
-    }, Some(created_by.clone()));
+    let _spending_result = select_spendings(
+        &mut conn,
+        &crate::models::spending::SpendingParam {
+            description: None,
+            spending_category_id: None,
+            spending_category: None,
+            source_id: None,
+            source: None,
+            month: None,
+            year: None,
+            day: None,
+            spending_id: None,
+        },
+        Some(created_by.clone()),
+    );
+    let _earning_result = select_earnings(
+        &mut conn,
+        &crate::models::earning::EarningParam {
+            description: None,
+            earning_category_id: None,
+            earning_category: None,
+            source_id: None,
+            source: None,
+            month: None,
+            year: None,
+            day: None,
+            earning_id: None,
+        },
+        Some(created_by.clone()),
+    );
     let _source_result = select_all_sources(&mut conn, &source_filter);
     let mut _source_balance: Vec<SourceBalance> = Vec::new();
     match &_source_result {
         Ok(vec) => {
             for item in vec.iter() {
-                let _earning_item = _earning_result.as_ref().unwrap().iter().filter(|e| e.created_by == created_by.clone() && e.source_id == item.source_id);
-                let _spending_item = _spending_result.as_ref().unwrap().iter().filter(|s| s.created_by == created_by.clone() && s.source_id == item.source_id);
+                let _earning_item = _earning_result.as_ref().unwrap().iter().filter(|e| {
+                    e.created_by == created_by.clone() && e.source_id == item.source_id
+                });
+                let _spending_item = _spending_result.as_ref().unwrap().iter().filter(|s| {
+                    s.created_by == created_by.clone() && s.source_id == item.source_id
+                });
                 let total_earning: f64 = _earning_item.clone().map(|e| e.total_amount).sum();
                 let total_spending: f64 = _spending_item.clone().map(|s| s.total_amount).sum();
                 let source_balance = SourceBalance {
                     source_id: item.source_id,
                     source: item.source.clone(),
-                    total: total_earning - total_spending
+                    total: total_earning - total_spending,
                 };
                 _source_balance.push(source_balance);
             }
@@ -106,7 +118,7 @@ pub async fn get_all_source_balance(req: HttpRequest) -> HttpResponse {
         message: "Success get sources balance".to_string(),
         description: "".to_string(),
         data: Some(serde_json::to_value(_source_balance).unwrap()),
-        success: true
+        success: true,
     };
     HttpResponse::Ok().json(response)
 }
@@ -114,19 +126,19 @@ pub async fn get_all_source_balance(req: HttpRequest) -> HttpResponse {
 pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
-    
+
     let new_source = SourceV2 {
         source_id: Uuid::new_v4(),
         source: source.source.clone(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
 
     let _result = insert_source(&mut conn, &new_source);
 
     match _result {
-        Ok(e) => match e{
+        Ok(e) => match e {
             DatabaseResult::Inserted => {
                 let response = Response {
                     status: "Success".to_string(),
@@ -134,10 +146,10 @@ pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -
                     message: "Source inserted successfully".to_string(),
                     description: "".to_string(),
                     data: Some(serde_json::to_value(new_source).unwrap()),
-                    success: true
+                    success: true,
                 };
                 HttpResponse::Ok().json(response)
-            },
+            }
             DatabaseResult::Duplicate => {
                 let response = Response {
                     status: "Error".to_string(),
@@ -145,11 +157,10 @@ pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -
                     message: "Failed to insert source".to_string(),
                     description: "Source already exists".to_string(),
                     data: None,
-                    success: false
+                    success: false,
                 };
                 HttpResponse::BadRequest().json(response)
             }
-            
         },
         Err(err) => {
             let response = Response {
@@ -158,15 +169,14 @@ pub async fn post_source_api_v2(req: HttpRequest, source: web::Json<SourceV2>) -
                 message: "Failed to insert source".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
-            
         }
     }
 }
 
-pub async fn delete_source_api_v2(req: HttpRequest,path: web::Path<String>) -> HttpResponse {
+pub async fn delete_source_api_v2(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let source_name = path.into_inner();
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
@@ -175,7 +185,7 @@ pub async fn delete_source_api_v2(req: HttpRequest,path: web::Path<String>) -> H
         source: "".to_string(),
         created_date: Local::now().naive_local(),
         created_by: created_by.clone(),
-        is_active: 1
+        is_active: 1,
     };
     let _result = delete_source(&mut conn, &source);
 
@@ -187,10 +197,10 @@ pub async fn delete_source_api_v2(req: HttpRequest,path: web::Path<String>) -> H
                 message: "Source deleted successfully".to_string(),
                 description: "".to_string(),
                 data: None,
-                success: true
+                success: true,
             };
             HttpResponse::Ok().json(response)
-        },
+        }
         Err(err) => {
             let response = Response {
                 status: "Error".to_string(),
@@ -198,7 +208,7 @@ pub async fn delete_source_api_v2(req: HttpRequest,path: web::Path<String>) -> H
                 message: "Failed to delete source".to_string(),
                 description: err.to_string(),
                 data: None,
-                success: false
+                success: false,
             };
             HttpResponse::InternalServerError().json(response)
         }

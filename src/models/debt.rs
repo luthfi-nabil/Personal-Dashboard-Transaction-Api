@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, NaiveDateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Debt {
     #[serde(skip_deserializing)]
-    pub debt_id : Uuid, 
+    pub debt_id: Uuid,
     pub amount: f64,
     pub description: String,
     pub debt_type: i32,
@@ -18,7 +18,7 @@ pub struct Debt {
     #[serde(skip_deserializing)]
     pub created_by: String,
     #[serde(skip_deserializing)]
-    pub is_active: i32
+    pub is_active: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,5 +28,5 @@ pub struct DebtParam {
     pub debt_type: Option<i32>,
     pub debt_earning_id: Option<String>,
     pub debt_spending_id: Option<String>,
-    pub status: Option<i32>
+    pub status: Option<i32>,
 }

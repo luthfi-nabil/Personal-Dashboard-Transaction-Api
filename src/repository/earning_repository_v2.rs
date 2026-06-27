@@ -1,10 +1,10 @@
-use mysql::{Result, PooledConn, params, Error as MysqlError};
+use crate::models::earning::{EarningCategoryV2, EarningParam, EarningV2};
+use crate::models::responses::DatabaseResult;
+use chrono::NaiveDateTime;
 use mysql::prelude::*;
-use chrono::{NaiveDateTime};
-use crate::models::responses::{DatabaseResult};
-use crate::models::earning::{EarningV2, EarningCategoryV2,EarningParam};
-use uuid::Uuid;
+use mysql::{Error as MysqlError, PooledConn, Result, params};
 use std::error::Error;
+use uuid::Uuid;
 pub fn create_earning_category_table(conn: &mut PooledConn) -> Result<()> {
     conn.query_drop(
         "CREATE TABLE IF NOT EXISTS earning_category (
@@ -13,7 +13,7 @@ pub fn create_earning_category_table(conn: &mut PooledConn) -> Result<()> {
             created_date DATETIME NOT NULL,
             created_by VARCHAR(255) NOT NULL,
             is_active INTEGER NOT NULL DEFAULT 1
-        )"
+        )",
     )?;
     Ok(())
 }
@@ -36,71 +36,77 @@ pub fn create_earning_table(conn: &mut PooledConn) -> Result<()> {
     Ok(())
 }
 
-pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: Option<String>) -> Result<Vec<EarningV2>, Box<dyn Error>> {
-    let mut query = String::from("SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by, is_active FROM earning");
+pub fn select_earnings(
+    conn: &mut PooledConn,
+    param: &EarningParam,
+    created_by: Option<String>,
+) -> Result<Vec<EarningV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        "SELECT earning_id, total_amount, description, earning_category_id, earning_category, source_id, source, created_date, created_by, is_active FROM earning",
+    );
     query.push_str(" where is_active = 1");
     let mut params: Vec<mysql::Value> = Vec::new();
     match &param.description {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and description like ?");
             params.push(("%".to_string() + val + "%").into());
-        },
+        }
         None => {}
     }
 
     match &param.earning_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and earning_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &param.earning_category {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and upper(earning_category) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.source {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and upper(source) = ?");
             params.push(("upper('".to_string() + val + "')").into());
-        },
+        }
         None => {}
     }
 
     match &param.earning_category_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and earning_category_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &param.source_id {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and source_id = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
-    
+
     match &param.month {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and MONTH(created_date) = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
     match &created_by {
-        Some(val)=>{
+        Some(val) => {
             query.push_str(" and created_by = ?");
             params.push(val.into());
-        },
+        }
         None => {}
     }
 
@@ -119,27 +125,25 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
             created_by,
             is_active,
         ): (
-            String,          // earning_id (BINARY UUID)
-            f64,              // total_amount (DOUBLE)
-            String,   // description
-            String,          // earning_category_id
-            String,           // earning_category
-            String,          // source_id
-            String,           // source
-            NaiveDateTime,    // created_date (DATETIME)
-            String,           // created_by
-            i32               // is_active (INT)
+            String,        // earning_id (BINARY UUID)
+            f64,           // total_amount (DOUBLE)
+            String,        // description
+            String,        // earning_category_id
+            String,        // earning_category
+            String,        // source_id
+            String,        // source
+            NaiveDateTime, // created_date (DATETIME)
+            String,        // created_by
+            i32,           // is_active (INT)
         )| {
             EarningV2 {
-                earning_id: Uuid::parse_str(&earning_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                earning_id: Uuid::parse_str(&earning_id).unwrap_or_else(|_| Uuid::nil()),
                 total_amount,
                 description,
                 earning_category_id: Uuid::parse_str(&earning_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                    .unwrap_or_else(|_| Uuid::nil()),
                 earning_category,
-                source_id: Uuid::parse_str(&source_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                source_id: Uuid::parse_str(&source_id).unwrap_or_else(|_| Uuid::nil()),
                 source,
                 created_date,
                 created_by,
@@ -151,12 +155,17 @@ pub fn select_earnings(conn: &mut PooledConn, param: &EarningParam, created_by: 
 }
 
 /// ✅ Select one earning category by ID
-pub fn select_earning_category(conn: &mut PooledConn, earning_category: &EarningCategoryV2) -> Result<Vec<EarningCategoryV2>, Box<dyn Error>> {
-    let mut query = String::from(r#"
+pub fn select_earning_category(
+    conn: &mut PooledConn,
+    earning_category: &EarningCategoryV2,
+) -> Result<Vec<EarningCategoryV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        r#"
         SELECT earning_category_id, earning_category, created_date, created_by, is_active
         FROM earning_category
         WHERE is_active = 1
-    "#);
+    "#,
+    );
     let mut params: Vec<mysql::Value> = Vec::new();
     if earning_category.earning_category_id != Uuid::nil() {
         query.push_str(" AND earning_category_id = ?");
@@ -167,14 +176,20 @@ pub fn select_earning_category(conn: &mut PooledConn, earning_category: &Earning
         query.push_str(" AND created_by = ?");
         params.push(earning_category.created_by.to_string().into());
     }
-    
+
     let result: Vec<EarningCategoryV2> = conn.exec_map(
         query,
         params,
-        |(earning_category_id, earning_category, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
+        |(earning_category_id, earning_category, created_date, created_by, is_active): (
+            String,
+            String,
+            NaiveDateTime,
+            String,
+            i32,
+        )| {
             EarningCategoryV2 {
                 earning_category_id: Uuid::parse_str(&earning_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                    .unwrap_or_else(|_| Uuid::nil()),
                 earning_category: earning_category,
                 created_date: created_date,
                 created_by: created_by,
@@ -187,11 +202,16 @@ pub fn select_earning_category(conn: &mut PooledConn, earning_category: &Earning
 }
 
 /// ✅ Select one earning category by ID
-pub fn select_all_earning_categories(conn: &mut PooledConn, earning_category: &EarningCategoryV2) -> Result<Vec<EarningCategoryV2>, Box<dyn Error>> {
-    let mut query = String::from(r#"
+pub fn select_all_earning_categories(
+    conn: &mut PooledConn,
+    earning_category: &EarningCategoryV2,
+) -> Result<Vec<EarningCategoryV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        r#"
         SELECT earning_category_id, earning_category, created_date, created_by, is_active
         FROM earning_category WHERE is_active = 1
-    "#);
+    "#,
+    );
 
     let mut params: Vec<mysql::Value> = Vec::new();
     if earning_category.earning_category_id != Uuid::nil() {
@@ -207,10 +227,16 @@ pub fn select_all_earning_categories(conn: &mut PooledConn, earning_category: &E
     let result: Vec<EarningCategoryV2> = conn.exec_map(
         query,
         params,
-        |(earning_category_id, earning_category, created_date, created_by, is_active): (String, String, NaiveDateTime, String, i32)| {
+        |(earning_category_id, earning_category, created_date, created_by, is_active): (
+            String,
+            String,
+            NaiveDateTime,
+            String,
+            i32,
+        )| {
             EarningCategoryV2 {
                 earning_category_id: Uuid::parse_str(&earning_category_id)
-                .unwrap_or_else(|_| Uuid::nil()),
+                    .unwrap_or_else(|_| Uuid::nil()),
                 earning_category: earning_category,
                 created_date: created_date,
                 created_by: created_by,
@@ -221,7 +247,6 @@ pub fn select_all_earning_categories(conn: &mut PooledConn, earning_category: &E
 
     Ok(result)
 }
-
 
 /// ✅ Insert a new earning
 pub fn insert_earning(conn: &mut PooledConn, earning: &EarningV2) -> Result<(), Box<dyn Error>> {
@@ -253,7 +278,10 @@ pub fn insert_earning(conn: &mut PooledConn, earning: &EarningV2) -> Result<(), 
 }
 
 /// ✅ Insert a new earning category
-pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategoryV2) -> Result<DatabaseResult, Box<dyn Error>> {
+pub fn insert_earning_category(
+    conn: &mut PooledConn,
+    category: &EarningCategoryV2,
+) -> Result<DatabaseResult, Box<dyn Error>> {
     let query = r#"
         INSERT INTO earning_category 
         (earning_category_id, earning_category, created_date, created_by, is_active)
@@ -275,9 +303,7 @@ pub fn insert_earning_category(conn: &mut PooledConn, category: &EarningCategory
         Ok(_) => Ok(DatabaseResult::Inserted),
 
         Err(MysqlError::MySqlError(ref e)) => match e.code {
-            1062u16 => {
-                Ok(DatabaseResult::Duplicate)
-            }
+            1062u16 => Ok(DatabaseResult::Duplicate),
             _ => Err(Box::new(MysqlError::MySqlError(e.clone()))),
         },
 
@@ -294,10 +320,11 @@ pub fn delete_earning(conn: &mut PooledConn, earning: &EarningV2) -> Result<(), 
     Ok(())
 }
 
-
-
 /// ✅ Soft delete (deactivate) an earning category
-pub fn delete_earning_category(conn: &mut PooledConn, category: &EarningCategoryV2) -> Result<(), Box<dyn Error>> {
+pub fn delete_earning_category(
+    conn: &mut PooledConn,
+    category: &EarningCategoryV2,
+) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
         "UPDATE earning_category SET is_active = 0 WHERE earning_category_id = :cat_id and created_by = :by",
         params! { "cat_id" => category.earning_category_id.to_string(), "by" => category.created_by.to_string() },

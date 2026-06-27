@@ -6,7 +6,7 @@ pub struct Response {
     pub message: String,
     pub description: String,
     pub data: Option<serde_json::Value>,
-    pub success: bool
+    pub success: bool,
 }
 
 #[derive(Debug)]
