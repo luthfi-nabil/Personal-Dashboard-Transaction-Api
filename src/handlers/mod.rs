@@ -1,3 +1,4 @@
+pub mod activity_handler;
 pub mod app_setting_handler;
 pub mod debt_handler;
 pub mod earning_handler_v2;

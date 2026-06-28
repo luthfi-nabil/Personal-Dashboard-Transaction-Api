@@ -1,6 +1,7 @@
 use mysql::PooledConn;
 
 use crate::helper::connection::establish_connection_v2;
+use crate::repository::activity_repository::create_activity_category_table;
 use crate::repository::app_setting_repository::{ensure_default_settings, init_setting_table};
 use crate::repository::earning_repository_v2::{
     create_earning_category_table as create_earning_category_table_v2,
@@ -27,6 +28,8 @@ pub fn init_create_table_v2() {
     create_wishlist_table(&mut conn).expect("Failed to initialize wishlist table");
     create_routine_table(&mut conn).expect("Failed to initialize routine transaction table");
     create_routine_payment_table(&mut conn).expect("Failed to initialize routine payment table");
+    create_activity_category_table(&mut conn)
+        .expect("Failed to initialize activity category table");
     init_setting_table(&mut conn).expect("Failed to initialize app settings table");
     ensure_default_settings(&mut conn).expect("Failed to ensure default app settings");
 }

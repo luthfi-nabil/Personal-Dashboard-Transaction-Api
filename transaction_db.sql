@@ -22,6 +22,16 @@ INSERT INTO `app_settings` (`app_setting_id`, `app_setting_key`, `app_setting_va
 ('00000000-0000-4000-9000-000000000005', 'DEBT_CATEGORY_ID', '00000000-0000-4000-8000-000000000003', 1),
 ('00000000-0000-4000-9000-000000000006', 'DEBT_CATEGORY_NAME', 'Debt', 1);
 
+CREATE TABLE `activity_category` (
+  `activity_category_id` char(36) NOT NULL,
+  `activity_category` varchar(255) NOT NULL,
+  `created_date` datetime NOT NULL,
+  `created_by` varchar(255) NOT NULL,
+  `is_active` int(11) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`activity_category_id`),
+  UNIQUE KEY `activity_category_user` (`activity_category`, `created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 CREATE TABLE `debt` (
   `debt_id` char(36) NOT NULL,
   `description` varchar(255) NOT NULL,

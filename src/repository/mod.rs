@@ -1,3 +1,4 @@
+pub mod activity_repository;
 pub mod app_setting_repository;
 pub mod debt_repository;
 pub mod earning_repository_v2;

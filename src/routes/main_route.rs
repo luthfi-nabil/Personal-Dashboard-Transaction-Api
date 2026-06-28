@@ -1,6 +1,9 @@
 use actix_web::web;
 use std::env;
 
+use crate::handlers::activity_handler::{
+    delete_activity_category_api, get_activity_categories_api, post_activity_category_api,
+};
 use crate::handlers::app_setting_handler::get_all_setting_api;
 use crate::handlers::debt_handler::{get_debt, post_debt_api, update_debt_status};
 use crate::handlers::earning_handler_v2::{
@@ -94,6 +97,18 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route(
                 "/planned-expense-categories/{category}",
                 web::delete().to(delete_planned_expense_category_api),
+            )
+            .route(
+                "/activity-categories",
+                web::get().to(get_activity_categories_api),
+            )
+            .route(
+                "/activity-categories",
+                web::post().to(post_activity_category_api),
+            )
+            .route(
+                "/activity-categories/{category}",
+                web::delete().to(delete_activity_category_api),
             )
             .route(
                 "/planned-expenses/{planned_expense_id}/status",

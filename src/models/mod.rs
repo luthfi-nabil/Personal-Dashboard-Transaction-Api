@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod app_setting;
 pub mod debt;
 pub mod earning;
