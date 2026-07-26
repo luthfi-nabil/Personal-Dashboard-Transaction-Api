@@ -5,7 +5,7 @@ use crate::models::responses::{DatabaseResult, Response};
 use crate::models::source::SourceV2;
 use crate::repository::app_setting_repository::select_all_settings;
 use crate::repository::earning_repository_v2::{
-    delete_earning_category, insert_earning, insert_earning_category,
+    delete_earning, delete_earning_category, insert_earning, insert_earning_category,
     select_all_earning_categories, select_earning_category, select_earnings,
 };
 use crate::repository::source_repository_v2::select_source;
@@ -244,6 +244,48 @@ pub async fn post_earning_api_v2(req: HttpRequest, earning: web::Json<EarningV2>
     } else {
         response.success = false;
         HttpResponse::BadRequest().json(response)
+    }
+}
+
+pub async fn delete_earning_api_v2(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let mut conn = establish_connection_v2().expect("Failed to connect to database");
+    let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    let earning = EarningV2 {
+        earning_id: Uuid::parse_str(&path.into_inner()).unwrap_or_else(|_| Uuid::nil()),
+        total_amount: 0.0,
+        description: "".to_string(),
+        earning_category_id: Uuid::nil(),
+        earning_category: "".to_string(),
+        source_id: Uuid::nil(),
+        source: "".to_string(),
+        created_date: Local::now().naive_local(),
+        created_by,
+        is_active: 1,
+    };
+
+    match delete_earning(&mut conn, &earning) {
+        Ok(_) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
+                message: "Success delete earning".to_string(),
+                description: "".to_string(),
+                data: None,
+                success: true,
+            };
+            HttpResponse::Ok().json(response)
+        }
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
+                message: "Failed to delete earning".to_string(),
+                description: err.to_string(),
+                data: None,
+                success: false,
+            };
+            HttpResponse::InternalServerError().json(response)
+        }
     }
 }
 

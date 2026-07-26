@@ -7,8 +7,8 @@ use crate::handlers::activity_handler::{
 use crate::handlers::app_setting_handler::get_all_setting_api;
 use crate::handlers::debt_handler::{get_debt, post_debt_api, update_debt_status};
 use crate::handlers::earning_handler_v2::{
-    delete_earning_category_api_v2, get_all_earning_categories_api_v2, get_all_earnings_api_v2,
-    post_earning_api_v2, post_earning_category_api_v2,
+    delete_earning_api_v2, delete_earning_category_api_v2, get_all_earning_categories_api_v2,
+    get_all_earnings_api_v2, post_earning_api_v2, post_earning_category_api_v2,
 };
 use crate::handlers::flutter_sync_handler::{get_sync, post_sync_push};
 use crate::handlers::routine_handler::{
@@ -19,8 +19,8 @@ use crate::handlers::source_handler_v2::{
     delete_source_api_v2, get_all_source_balance, get_all_sources_api_v2, post_source_api_v2,
 };
 use crate::handlers::spending_handler_v2::{
-    delete_spending_category_api_v2, get_all_spending_categories_api_v2, get_all_spendings_api_v2,
-    post_spending_api_v2, post_spending_category_api_v2,
+    delete_spending_api_v2, delete_spending_category_api_v2, get_all_spending_categories_api_v2,
+    get_all_spendings_api_v2, post_spending_api_v2, post_spending_category_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
 use crate::handlers::wishlist_handler::{
@@ -52,6 +52,10 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route("/earnings", web::get().to(get_all_earnings_api_v2))
             .route("/earnings", web::post().to(post_earning_api_v2))
             .route(
+                "/earnings/{earning_id}",
+                web::delete().to(delete_earning_api_v2),
+            )
+            .route(
                 "/earning-categories",
                 web::get().to(get_all_earning_categories_api_v2),
             )
@@ -65,6 +69,10 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             )
             .route("/spendings", web::get().to(get_all_spendings_api_v2))
             .route("/spendings", web::post().to(post_spending_api_v2))
+            .route(
+                "/spendings/{spending_id}",
+                web::delete().to(delete_spending_api_v2),
+            )
             .route(
                 "/spending-categories",
                 web::get().to(get_all_spending_categories_api_v2),

@@ -6,7 +6,7 @@ use crate::models::spending::{SpendingCategoryV2, SpendingParam, SpendingV2};
 use crate::repository::app_setting_repository::select_all_settings;
 use crate::repository::source_repository_v2::select_source;
 use crate::repository::spending_repository_v2::{
-    delete_spending_category, insert_spending, insert_spending_category,
+    delete_spending, delete_spending_category, insert_spending, insert_spending_category,
     select_all_spending_categories, select_spending_category, select_spendings,
 };
 use crate::route_middleware::get_user::CreatedBy;
@@ -253,6 +253,48 @@ pub async fn post_spending_api_v2(
     } else {
         response.success = false;
         HttpResponse::BadRequest().json(response)
+    }
+}
+
+pub async fn delete_spending_api_v2(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
+    let mut conn = establish_connection_v2().expect("Failed to connect to database");
+    let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    let spending = SpendingV2 {
+        spending_id: Uuid::parse_str(&path.into_inner()).unwrap_or_else(|_| Uuid::nil()),
+        total_amount: 0.0,
+        description: "".to_string(),
+        spending_category_id: Uuid::nil(),
+        spending_category: "".to_string(),
+        source_id: Uuid::nil(),
+        source: "".to_string(),
+        created_date: Local::now().naive_local(),
+        created_by,
+        is_active: 1,
+    };
+
+    match delete_spending(&mut conn, &spending) {
+        Ok(_) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
+                message: "Success delete spending".to_string(),
+                description: "".to_string(),
+                data: None,
+                success: true,
+            };
+            HttpResponse::Ok().json(response)
+        }
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
+                message: "Failed to delete spending".to_string(),
+                description: err.to_string(),
+                data: None,
+                success: false,
+            };
+            HttpResponse::InternalServerError().json(response)
+        }
     }
 }
 

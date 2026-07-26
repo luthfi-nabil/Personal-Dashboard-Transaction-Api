@@ -303,10 +303,13 @@ pub fn insert_spending_category(
 }
 
 /// ✅ Delete an spending permanently
-pub fn delete_spending(conn: &mut PooledConn, spending_id: &str) -> Result<(), Box<dyn Error>> {
+pub fn delete_spending(conn: &mut PooledConn, spending: &SpendingV2) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
-        "DELETE FROM spending WHERE spending_id = :id",
-        params! { "id" => spending_id },
+        "DELETE FROM spending WHERE spending_id = :id AND created_by = :created_by",
+        params! {
+            "id" => spending.spending_id.to_string(),
+            "created_by" => spending.created_by.to_string(),
+        },
     )?;
     Ok(())
 }
