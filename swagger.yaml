@@ -3,7 +3,8 @@ info:
   title: Transaction API
   description: |
     Personal finance transaction API built with Actix-Web (Rust) and SQLite.
-    Manages sources (wallets/accounts), earnings, spendings, debts, and app settings.
+    Manages sources (wallets/accounts), earnings, spendings, and debts.
+    App settings live in login-api as of 2026-07-27.
     
     All user-specific endpoints are scoped under `/api/user` and require a bearer JWT.
     The validated token's `sub` claim is used as the `created_by` user identifier.
@@ -19,8 +20,6 @@ security:
   - bearerAuth: []
 
 tags:
-  - name: Settings
-    description: Application settings (global)
   - name: Sources
     description: Financial sources / wallet accounts
   - name: Earnings
@@ -35,40 +34,21 @@ tags:
     description: Debt / receivable tracking
   - name: Planned Expenses
     description: Planned future spending or earning items
+  - name: Consumables
+    description: Things that run out, tracked one physical unit at a time
+  - name: Investments
+    description: Reksa dana, gold and silver holdings
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PATHS
 # ─────────────────────────────────────────────────────────────────────────────
 paths:
 
-  # ── Global Settings ──────────────────────────────────────────────────────
-  /api/settings:
-    get:
-      security: []
-      tags: [Settings]
-      summary: Get all app settings (public)
-      operationId: getSettingsPublic
-      responses:
-        "200":
-          description: Settings retrieved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResponseAppSettings"
-
-  # ── User Settings ─────────────────────────────────────────────────────────
-  /api/user/settings:
-    get:
-      tags: [Settings]
-      summary: Get all app settings (user-scoped)
-      operationId: getSettingsUser
-      responses:
-        "200":
-          description: Settings retrieved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResponseAppSettings"
+  # ── App settings moved to login-api ──────────────────────────────────────
+  # `GET /api/settings`, `GET /api/user/settings` and `POST /api/user/settings`
+  # are served by login-api as of 2026-07-27. See login-api/swagger.yaml.
+  # This service reads the global category wiring from
+  # `GET {LOGIN_API_BASE}/api/settings` internally.
 
   # ── Sources ──────────────────────────────────────────────────────────────
   /api/user/source:
@@ -353,6 +333,15 @@ paths:
               spending_category: "Food"
               source_id: "550e8400-e29b-41d4-a716-446655440000"
               source: "BCA Savings"
+              details:
+                - item_name: "Indomie Goreng"
+                  quantity: 2
+                  unit_price: 3500
+                  amount: 7000
+                - item_name: "Telur 1kg"
+                  quantity: 1
+                  unit_price: 32000
+                  amount: 32000
       responses:
         "201":
           description: Spending created
@@ -366,6 +355,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseError"
+
+  # ── Spending Details (line items) ─────────────────────────────────────────
+  /api/user/spending-details:
+    get:
+      tags: [Spendings]
+      summary: Get spending line items, optionally scoped to one spending
+      description: >
+        Returns every line item owned by the caller. The Flutter client pulls
+        this on sync so transaction details are available offline.
+      operationId: getSpendingDetails
+      parameters:
+        - name: spending_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spending details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpendingDetails"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/spendings/{spending_id}/details:
+    get:
+      tags: [Spendings]
+      summary: Get the line items of a single spending
+      operationId: getSpendingDetailsById
+      parameters:
+        - name: spending_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spending details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSpendingDetails"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/spending-details/{spending_detail_id}/checked:
+    put:
+      tags: [Spendings]
+      summary: Tick or untick one line item
+      description: >
+        The spending header is immutable once saved, so this is the only field
+        of a stored breakdown a client can change. Used by the checklist on the
+        Flutter transaction detail screen.
+      operationId: putSpendingDetailChecked
+      parameters:
+        - name: spending_detail_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checked]
+              properties:
+                checked:
+                  type: boolean
+                  example: false
+      responses:
+        "200":
+          description: Line item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResponse"
+        "400":
+          description: Malformed spending detail id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "404":
+          description: No line item with that id belongs to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   # ── Spending Categories ───────────────────────────────────────────────────
   /api/user/spending-categories:
@@ -701,6 +781,252 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ── Consumables ───────────────────────────────────────────────────────────
+  /api/user/consumables:
+    get:
+      tags: [Consumables]
+      summary: Get every consumable unit the caller owns
+      description: >
+        Units still in use come first, then the ones already used up, newest
+        acquisition first.
+      operationId: getConsumables
+      responses:
+        "200":
+          description: Consumables retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsumables"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Consumables]
+      summary: Add one consumable unit
+      description: >
+        One call creates one unit. A multi-pack is posted as several calls,
+        each with its own `consumable_id` and `unit_index`, so every unit can
+        run out on its own date. Sending an id that already exists updates that
+        unit, which makes a retried offline write safe.
+      operationId: postConsumable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsumableInput"
+      responses:
+        "200":
+          description: Consumable saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsumable"
+        "400":
+          description: Missing item name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/consumables/{consumable_id}/out:
+    put:
+      tags: [Consumables]
+      summary: Record the date a unit ran out
+      description: >
+        Sending `{"out_date": null}` puts the unit back in use, which is the
+        undo for a mistaken tap.
+      operationId: putConsumableOut
+      parameters:
+        - name: consumable_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                out_date:
+                  type: string
+                  nullable: true
+                  example: "2026-09-19T08:30:00.000"
+      responses:
+        "200":
+          description: Consumable updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "400":
+          description: out_date could not be read as a date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "404":
+          description: No consumable with that id belongs to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/consumables/{consumable_id}:
+    delete:
+      tags: [Consumables]
+      summary: Remove a consumable unit
+      operationId: deleteConsumable
+      parameters:
+        - name: consumable_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Consumable removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Investments ──────────────────────────────────────────────────────────
+  /api/user/investments:
+    get:
+      tags: [Investments]
+      summary: Get every investment holding the caller owns
+      description: >
+        Grouped by kind (funds, then gold, then silver) so a client can render
+        its sections without re-sorting, newest acquisition first within each.
+      operationId: getInvestments
+      responses:
+        "200":
+          description: Investments retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseInvestments"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags: [Investments]
+      summary: Add or edit one investment holding
+      description: >
+        Sending an `investment_id` that already exists updates that holding,
+        which makes a retried offline write safe. `last_unit_price` falls back
+        to `buy_unit_price` when absent, so a fresh holding is worth what it
+        cost until the first price update lands.
+      operationId: postInvestment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvestmentInput"
+      responses:
+        "200":
+          description: Investment saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseInvestment"
+        "400":
+          description: Missing name, unknown kind, or negative units/price
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/investments/{investment_id}/price:
+    put:
+      tags: [Investments]
+      summary: Record a fresh valuation for one holding
+      description: >
+        Used for a NAB read off a broker app, or a gold/silver price pulled
+        from a price API. Deliberately cannot touch `units` or
+        `buy_unit_price`, so a bad price refresh can never rewrite what was
+        actually bought.
+      operationId: putInvestmentPrice
+      parameters:
+        - name: investment_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [last_unit_price]
+              properties:
+                last_unit_price:
+                  type: number
+                  format: double
+                  example: 2550000
+                price_source:
+                  type: string
+                  description: >
+                    Where the price came from, e.g. `anekalogam` or `spot`.
+                    Empty means it was entered by hand.
+                  example: "anekalogam"
+                price_updated_date:
+                  type: string
+                  nullable: true
+                  description: Defaults to now when absent or unreadable.
+                  example: "2026-08-08T09:00:00.000"
+      responses:
+        "200":
+          description: Investment price updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "400":
+          description: Negative price
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "404":
+          description: No investment with that id belongs to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/user/investments/{investment_id}:
+    delete:
+      tags: [Investments]
+      summary: Remove an investment holding
+      operationId: deleteInvestment
+      parameters:
+        - name: investment_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Investment removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseSuccess"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 # COMPONENTS
 # ─────────────────────────────────────────────────────────────────────────────
 components:
@@ -762,32 +1088,7 @@ components:
               nullable: true
               example: null
 
-    # ── App Settings ────────────────────────────────────────────────────────
-    AppSetting:
-      type: object
-      properties:
-        app_setting_id:
-          type: string
-          format: uuid
-        app_setting_key:
-          type: string
-          example: "TRANSFER_CATEGORY_ID"
-        app_setting_value:
-          type: string
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        is_active:
-          type: integer
-          example: 1
-
-    ResponseAppSettings:
-      allOf:
-        - $ref: "#/components/schemas/BaseResponse"
-        - type: object
-          properties:
-            data:
-              type: array
-              items:
-                $ref: "#/components/schemas/AppSetting"
+    # ── App Settings schemas moved to login-api/swagger.yaml ────────────────
 
     # ── Sources ─────────────────────────────────────────────────────────────
     SourceInput:
@@ -987,6 +1288,262 @@ components:
         source:
           type: string
           example: "BCA Savings"
+        details:
+          type: array
+          description: >
+            Optional line items ("transaction detail"). Sent by the Flutter
+            receipt scanner after the user confirms the recognised price list.
+            When omitted the spending is stored flat, exactly as before. When
+            present and `total_amount` is 0, the total is derived from the items.
+          items:
+            $ref: "#/components/schemas/SpendingDetailInput"
+
+    SpendingDetailInput:
+      type: object
+      required: [item_name]
+      properties:
+        item_name:
+          type: string
+          example: "Indomie Goreng"
+        quantity:
+          type: number
+          format: double
+          default: 1
+          example: 2
+        unit_price:
+          type: number
+          format: double
+          example: 3500
+        amount:
+          type: number
+          format: double
+          description: Line total. Falls back to `quantity * unit_price` when 0.
+          example: 7000
+        note:
+          type: string
+          example: ""
+        checked:
+          type: boolean
+          default: true
+          description: >
+            Whether the item is ticked on the client's checklist. Unticked items
+            stay in the breakdown but are left out of the derived total.
+
+    SpendingDetail:
+      allOf:
+        - $ref: "#/components/schemas/SpendingDetailInput"
+        - type: object
+          properties:
+            spending_detail_id:
+              type: string
+              format: uuid
+            spending_id:
+              type: string
+              format: uuid
+            is_checked:
+              type: boolean
+              example: true
+            created_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ConsumableInput:
+      type: object
+      required: [item_name]
+      properties:
+        consumable_id:
+          type: string
+          format: uuid
+          description: Client-generated, so a unit queued offline keeps its id.
+        item_name:
+          type: string
+          example: "Shampoo Clear 340ml"
+        notes:
+          type: string
+          example: ""
+        unit_index:
+          type: integer
+          default: 1
+          description: Position within the batch it was bought in.
+          example: 2
+        unit_total:
+          type: integer
+          default: 1
+          description: Size of that batch; 1 for a single unit.
+          example: 3
+        price:
+          type: number
+          format: double
+          description: What this one unit cost.
+          example: 45000
+        in_date:
+          type: string
+          description: >
+            When the unit came in. Accepts `2026-08-08T10:11:12.345`,
+            `2026-08-08 10:11:12`, `2026-08-08` or an RFC 3339 stamp. Defaults
+            to now when absent or unreadable.
+          example: "2026-08-08T10:11:12.000"
+        out_date:
+          type: string
+          nullable: true
+          description: When it ran out. Null while the unit is still in use.
+        spending_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Set when the unit was created from a transaction.
+        spending_detail_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The line item it was created from.
+
+    Consumable:
+      allOf:
+        - $ref: "#/components/schemas/ConsumableInput"
+        - type: object
+          properties:
+            created_date:
+              type: string
+              format: date-time
+            updated_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ResponseConsumable:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Consumable"
+
+    ResponseConsumables:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Consumable"
+
+    InvestmentInput:
+      type: object
+      required: [kind, name]
+      description: >
+        `units` and the unit prices mean whatever `kind` implies: units owned
+        and NAB per unit for a fund, grams and price per gram for metal.
+      properties:
+        investment_id:
+          type: string
+          format: uuid
+          description: Client-generated, so a holding queued offline keeps its id.
+        kind:
+          type: string
+          enum: [mutual_fund, gold, silver]
+          example: "gold"
+        name:
+          type: string
+          description: Fund name, or a label such as "Antam 1gr bar".
+          example: "Antam 1gr bar"
+        provider:
+          type: string
+          description: Where it is held - Bibit, Bareksa, Pegadaian, a safe.
+          example: "Pegadaian"
+        units:
+          type: number
+          format: double
+          description: Units owned for a fund, grams for metal.
+          example: 5
+        buy_unit_price:
+          type: number
+          format: double
+          description: >
+            Cost basis per unit. Set once and never rewritten, so gain/loss
+            survives every price refresh.
+          example: 2400000
+        last_unit_price:
+          type: number
+          format: double
+          nullable: true
+          description: >
+            Latest known value per unit. Falls back to `buy_unit_price` when
+            absent or zero.
+          example: 2550000
+        price_source:
+          type: string
+          description: Where `last_unit_price` came from; empty if hand-entered.
+          example: "anekalogam"
+        price_updated_date:
+          type: string
+          nullable: true
+          description: >
+            When that price was recorded. Accepts the same formats as every
+            other date in this API.
+          example: "2026-08-08T09:00:00.000"
+        notes:
+          type: string
+          example: ""
+        acquired_date:
+          type: string
+          description: When it was bought. Defaults to now when absent.
+          example: "2026-08-08T10:11:12.000"
+
+    Investment:
+      allOf:
+        - $ref: "#/components/schemas/InvestmentInput"
+        - type: object
+          properties:
+            created_date:
+              type: string
+              format: date-time
+            updated_date:
+              type: string
+              format: date-time
+            created_by:
+              type: string
+            is_active:
+              type: integer
+              example: 1
+
+    ResponseInvestment:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Investment"
+
+    ResponseInvestments:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Investment"
+
+    ResponseSpendingDetails:
+      allOf:
+        - $ref: "#/components/schemas/BaseResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/SpendingDetail"
 
     Spending:
       allOf:

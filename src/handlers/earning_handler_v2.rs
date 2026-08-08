@@ -1,9 +1,8 @@
 use crate::helper::connection::establish_connection_v2;
-use crate::models::app_setting;
+use crate::helper::settings_client::global_category_wiring;
 use crate::models::earning::{EarningCategoryV2, EarningParam, EarningV2};
 use crate::models::responses::{DatabaseResult, Response};
 use crate::models::source::SourceV2;
-use crate::repository::app_setting_repository::select_all_settings;
 use crate::repository::earning_repository_v2::{
     delete_earning, delete_earning_category, insert_earning, insert_earning_category,
     select_all_earning_categories, select_earning_category, select_earnings,
@@ -119,60 +118,17 @@ pub async fn post_earning_api_v2(req: HttpRequest, earning: web::Json<EarningV2>
     let _check_source = select_source(&mut conn, &source);
     let _check_category = select_earning_category(&mut conn, &earning_category);
 
-    // If transfer, get transfer category from app settings
-    let app_setting: app_setting::AppSettings = app_setting::AppSettings {
-        app_setting_id: Uuid::nil(),
-        app_setting_key: "".to_string(),
-        app_setting_value: "".to_string(),
-        is_active: 1,
+    // Transfer / recount / debt categories are server-owned wiring that lives in
+    // login-api's `app_settings`. When the posted category is one of them the
+    // name is taken from there and the local category check is bypassed.
+    let wiring = global_category_wiring().await;
+    let settings_bypass = match wiring.resolve_name(new_earning.earning_category_id) {
+        Some(name) => {
+            new_earning.earning_category = name;
+            true
+        }
+        None => false,
     };
-
-    let _get_app_setting = select_all_settings(&mut conn, &app_setting);
-    let mut settings_bypass = false;
-    if _get_app_setting.is_ok() {
-        let mut recount_category_id = Uuid::nil();
-        let mut recount_category_name = String::new();
-        let mut transfer_category_id = Uuid::nil();
-        let mut transfer_category_name = String::new();
-        let mut debt_category_id = Uuid::nil();
-        let mut debt_category_name = String::new();
-        for setting in _get_app_setting.unwrap() {
-            if setting.app_setting_key == "TRANSFER_CATEGORY_ID" {
-                transfer_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "TRANSFER_CATEGORY_NAME" {
-                transfer_category_name = setting.app_setting_value.clone();
-            }
-            if setting.app_setting_key == "RECOUNT_CATEGORY_ID" {
-                recount_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
-                recount_category_name = setting.app_setting_value.clone();
-            }
-            if setting.app_setting_key == "DEBT_CATEGORY_ID" {
-                debt_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "DEBT_CATEGORY_NAME" {
-                debt_category_name = setting.app_setting_value.clone();
-            }
-        }
-        if transfer_category_id != Uuid::nil()
-            && transfer_category_id == new_earning.earning_category_id
-        {
-            new_earning.earning_category = transfer_category_name.clone();
-            settings_bypass = true;
-        }
-        if recount_category_id != Uuid::nil()
-            && recount_category_id == new_earning.earning_category_id
-        {
-            new_earning.earning_category = recount_category_name.clone();
-            settings_bypass = true;
-        }
-        if debt_category_id != Uuid::nil() && debt_category_id == new_earning.earning_category_id {
-            new_earning.earning_category = debt_category_name.clone();
-            settings_bypass = true;
-        }
-    }
     let mut response = Response {
         status: "Success".to_string(),
         code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,

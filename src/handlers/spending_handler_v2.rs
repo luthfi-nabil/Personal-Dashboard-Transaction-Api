@@ -1,13 +1,17 @@
 use crate::helper::connection::establish_connection_v2;
-use crate::models::app_setting::AppSettings;
+use crate::helper::settings_client::global_category_wiring;
 use crate::models::responses::Response;
 use crate::models::source::SourceV2;
-use crate::models::spending::{SpendingCategoryV2, SpendingParam, SpendingV2};
-use crate::repository::app_setting_repository::select_all_settings;
+use crate::models::spending::{
+    SpendingCategoryV2, SpendingCreateV2, SpendingDetailCheckedInput, SpendingDetailParamQuery,
+    SpendingDetailV2, SpendingParam, SpendingV2,
+};
 use crate::repository::source_repository_v2::select_source;
 use crate::repository::spending_repository_v2::{
-    delete_spending, delete_spending_category, insert_spending, insert_spending_category,
-    select_all_spending_categories, select_spending_category, select_spendings,
+    delete_spending, delete_spending_category, delete_spending_details, insert_spending,
+    insert_spending_category, insert_spending_details, select_all_spending_categories,
+    select_spending_category, select_spending_details, select_spendings,
+    update_spending_detail_checked,
 };
 use crate::route_middleware::get_user::CreatedBy;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
@@ -89,19 +93,76 @@ pub async fn get_all_spending_categories_api_v2(req: HttpRequest) -> HttpRespons
 
 pub async fn post_spending_api_v2(
     req: HttpRequest,
-    spending: web::Json<SpendingV2>,
+    spending: web::Json<SpendingCreateV2>,
 ) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    let new_spending_id = Uuid::new_v4();
+    let created_date = Local::now().naive_local();
+
+    // Line items are optional. When the client sends details but leaves
+    // total_amount at 0 (e.g. the receipt scanner), the total is derived from
+    // the confirmed items so the header and its detail always agree. Unticked
+    // items stay in the breakdown but are not part of what was paid.
+    let details_total: f64 = spending
+        .details
+        .iter()
+        .filter(|d| d.checked)
+        .map(|d| {
+            if d.amount != 0.0 {
+                d.amount
+            } else {
+                d.quantity * d.unit_price
+            }
+        })
+        .sum();
+    let resolved_total = if spending.total_amount > 0.0 {
+        spending.total_amount
+    } else {
+        details_total
+    };
+
+    let new_details: Vec<SpendingDetailV2> = spending
+        .details
+        .iter()
+        .map(|d| {
+            let amount = if d.amount != 0.0 {
+                d.amount
+            } else {
+                d.quantity * d.unit_price
+            };
+            let unit_price = if d.unit_price != 0.0 {
+                d.unit_price
+            } else if d.quantity != 0.0 {
+                amount / d.quantity
+            } else {
+                amount
+            };
+            SpendingDetailV2 {
+                spending_detail_id: Uuid::new_v4(),
+                spending_id: new_spending_id,
+                item_name: d.item_name.clone(),
+                quantity: if d.quantity == 0.0 { 1.0 } else { d.quantity },
+                unit_price,
+                amount,
+                note: d.note.clone(),
+                is_checked: d.checked,
+                created_date,
+                created_by: created_by.clone(),
+                is_active: 1,
+            }
+        })
+        .collect();
+
     let mut new_spending = SpendingV2 {
-        spending_id: Uuid::new_v4(),
-        total_amount: spending.total_amount,
+        spending_id: new_spending_id,
+        total_amount: resolved_total,
         description: spending.description.clone(),
         spending_category_id: spending.spending_category_id,
         spending_category: spending.spending_category.clone(),
         source_id: spending.source_id,
         source: spending.source.clone(),
-        created_date: Local::now().naive_local(),
+        created_date,
         created_by: created_by.clone(),
         is_active: 1,
     };
@@ -124,64 +185,17 @@ pub async fn post_spending_api_v2(
 
     let _check_source = select_source(&mut conn, &source);
     let _check_category = select_spending_category(&mut conn, &category);
-    // If transfer, get transfer category from app settings
-    let app_setting: AppSettings = AppSettings {
-        app_setting_id: Uuid::nil(),
-        app_setting_key: "".to_string(),
-        app_setting_value: "".to_string(),
-        is_active: 1,
+    // Transfer / recount / debt categories are server-owned wiring that lives in
+    // login-api's `app_settings`. When the posted category is one of them the
+    // name is taken from there and the local category check is bypassed.
+    let wiring = global_category_wiring().await;
+    let settings_bypass = match wiring.resolve_name(new_spending.spending_category_id) {
+        Some(name) => {
+            new_spending.spending_category = name;
+            true
+        }
+        None => false,
     };
-    println!(
-        "Debug: Checking source and category existence {}",
-        _check_category.as_ref().unwrap().len() == 0
-    );
-    let _get_app_setting = select_all_settings(&mut conn, &app_setting);
-    let mut settings_bypass = false;
-    if _get_app_setting.is_ok() {
-        let mut recount_category_id = Uuid::nil();
-        let mut recount_category_name = String::new();
-        let mut transfer_category_id = Uuid::nil();
-        let mut transfer_category_name = String::new();
-        let mut debt_category_id = Uuid::nil();
-        let mut debt_category_name = String::new();
-        for setting in _get_app_setting.unwrap() {
-            if setting.app_setting_key == "TRANSFER_CATEGORY_ID" {
-                transfer_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "TRANSFER_CATEGORY_NAME" {
-                transfer_category_name = setting.app_setting_value.clone();
-            }
-            if setting.app_setting_key == "RECOUNT_CATEGORY_ID" {
-                recount_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "RECOUNT_CATEGORY_NAME" {
-                recount_category_name = setting.app_setting_value.clone();
-            }
-            if setting.app_setting_key == "DEBT_CATEGORY_ID" {
-                debt_category_id =
-                    Uuid::parse_str(&setting.app_setting_value).unwrap_or_else(|_| Uuid::nil());
-            } else if setting.app_setting_key == "DEBT_CATEGORY_NAME" {
-                debt_category_name = setting.app_setting_value.clone();
-            }
-        }
-        if transfer_category_id != Uuid::nil()
-            && transfer_category_id == new_spending.spending_category_id
-        {
-            new_spending.spending_category = transfer_category_name.clone();
-            settings_bypass = true;
-        }
-        if recount_category_id != Uuid::nil()
-            && recount_category_id == new_spending.spending_category_id
-        {
-            new_spending.spending_category = recount_category_name.clone();
-            settings_bypass = true;
-        }
-        if debt_category_id != Uuid::nil() && debt_category_id == new_spending.spending_category_id
-        {
-            new_spending.spending_category = debt_category_name.clone();
-            settings_bypass = true;
-        }
-    }
     let mut response = Response {
         status: "Success".to_string(),
         code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
@@ -207,7 +221,30 @@ pub async fn post_spending_api_v2(
                 success: false,
             };
         } else {
-            response.data = Some(serde_json::to_value(new_spending).unwrap());
+            // The spending header is in; now persist its line items. If the
+            // detail insert fails the header is rolled back so the caller never
+            // ends up with a total that has no matching breakdown.
+            let _detail_result = insert_spending_details(&mut conn, &new_details);
+            if let Err(err) = _detail_result {
+                let _ = delete_spending(&mut conn, &new_spending);
+                response = Response {
+                    status: "Error".to_string(),
+                    message: "Failed to create spending [Detail]".to_string(),
+                    code: crate::helper::response_code::ERROR_CODE_DATA_INSERTION_FAILED,
+                    description: err.to_string(),
+                    data: None,
+                    success: false,
+                };
+            } else {
+                let mut payload = serde_json::to_value(new_spending).unwrap();
+                if let Some(obj) = payload.as_object_mut() {
+                    obj.insert(
+                        "details".to_string(),
+                        serde_json::to_value(&new_details).unwrap(),
+                    );
+                }
+                response.data = Some(payload);
+            }
         }
     } else {
         if _check_category.is_err() {
@@ -256,6 +293,132 @@ pub async fn post_spending_api_v2(
     }
 }
 
+/// `GET /api/user/spending-details[?spending_id=...]`
+///
+/// Without `spending_id` this returns every line item the user owns, which is
+/// what the Flutter client pulls on sync so transaction details are available
+/// offline.
+pub async fn get_spending_details_api_v2(
+    req: HttpRequest,
+    query: web::Query<SpendingDetailParamQuery>,
+) -> HttpResponse {
+    let mut conn = establish_connection_v2().expect("Failed to connect to database");
+    let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+
+    match select_spending_details(&mut conn, query.spending_id, Some(created_by)) {
+        Ok(details) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
+                message: "Success get spending details".to_string(),
+                description: "".to_string(),
+                data: Some(serde_json::to_value(details).unwrap()),
+                success: true,
+            };
+            HttpResponse::Ok().json(response)
+        }
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
+                message: "Failed to retrieve spending details".to_string(),
+                description: err.to_string(),
+                data: None,
+                success: false,
+            };
+            HttpResponse::InternalServerError().json(response)
+        }
+    }
+}
+
+/// `GET /api/user/spendings/{spending_id}/details`
+pub async fn get_spending_details_by_id_api_v2(
+    req: HttpRequest,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let mut conn = establish_connection_v2().expect("Failed to connect to database");
+    let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    let spending_id = Uuid::parse_str(&path.into_inner()).unwrap_or_else(|_| Uuid::nil());
+
+    match select_spending_details(&mut conn, Some(spending_id), Some(created_by)) {
+        Ok(details) => {
+            let response = Response {
+                status: "Success".to_string(),
+                code: crate::helper::response_code::RESPONSE_CODE_DATA_RETRIEVAL_SUCCESS,
+                message: "Success get spending details".to_string(),
+                description: "".to_string(),
+                data: Some(serde_json::to_value(details).unwrap()),
+                success: true,
+            };
+            HttpResponse::Ok().json(response)
+        }
+        Err(err) => {
+            let response = Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_RETRIEVAL_FAILED,
+                message: "Failed to retrieve spending details".to_string(),
+                description: err.to_string(),
+                data: None,
+                success: false,
+            };
+            HttpResponse::InternalServerError().json(response)
+        }
+    }
+}
+
+/// `PUT /api/user/spending-details/{spending_detail_id}/checked`
+///
+/// Ticks or unticks one line item. The spending header itself is immutable, so
+/// this is the only field of a saved breakdown a client can change.
+pub async fn put_spending_detail_checked_api_v2(
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<SpendingDetailCheckedInput>,
+) -> HttpResponse {
+    let mut conn = establish_connection_v2().expect("Failed to connect to database");
+    let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    let detail_id = match Uuid::parse_str(&path.into_inner()) {
+        Ok(id) => id,
+        Err(err) => {
+            return HttpResponse::BadRequest().json(Response {
+                status: "Error".to_string(),
+                code: crate::helper::response_code::ERROR_CODE_DATA_UPDATE_FAILED,
+                message: "Invalid spending detail id".to_string(),
+                description: err.to_string(),
+                data: None,
+                success: false,
+            });
+        }
+    };
+
+    match update_spending_detail_checked(&mut conn, detail_id, &created_by, body.checked) {
+        Ok(0) => HttpResponse::NotFound().json(Response {
+            status: "Error".to_string(),
+            code: crate::helper::response_code::ERROR_CODE_DATA_UPDATE_FAILED,
+            message: "Spending detail not found".to_string(),
+            description: "No line item with that id belongs to this user".to_string(),
+            data: None,
+            success: false,
+        }),
+        Ok(_) => HttpResponse::Ok().json(Response {
+            status: "Success".to_string(),
+            code: crate::helper::response_code::RESPONSE_CODE_DATA_UPDATE_SUCCESS,
+            message: "Spending detail updated".to_string(),
+            description: "".to_string(),
+            data: None,
+            success: true,
+        }),
+        Err(err) => HttpResponse::InternalServerError().json(Response {
+            status: "Error".to_string(),
+            code: crate::helper::response_code::ERROR_CODE_DATA_UPDATE_FAILED,
+            message: "Failed to update spending detail".to_string(),
+            description: err.to_string(),
+            data: None,
+            success: false,
+        }),
+    }
+}
+
 pub async fn delete_spending_api_v2(req: HttpRequest, path: web::Path<String>) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
@@ -271,6 +434,10 @@ pub async fn delete_spending_api_v2(req: HttpRequest, path: web::Path<String>) -
         created_by,
         is_active: 1,
     };
+
+    // Detail rows have no FK cascade (the table is created by the app, not by a
+    // migration tool), so clear them explicitly before dropping the header.
+    let _ = delete_spending_details(&mut conn, spending.spending_id, &spending.created_by);
 
     match delete_spending(&mut conn, &spending) {
         Ok(_) => {

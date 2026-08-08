@@ -4,8 +4,7 @@ use crate::models::earning::{EarningCategoryV2, EarningParam, EarningV2};
 use crate::models::responses::{DatabaseResult, Response};
 use crate::models::source::SourceV2;
 use crate::models::spending::SpendingParam;
-use crate::models::{app_setting, debt};
-use crate::repository::app_setting_repository::select_all_settings;
+use crate::models::debt;
 use crate::repository::debt_repository::{insert_debt, select_debt, update_debt};
 use crate::repository::earning_repository_v2::{
     delete_earning_category, insert_earning, insert_earning_category,

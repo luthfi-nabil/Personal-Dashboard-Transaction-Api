@@ -5,6 +5,7 @@ use std::error::Error;
 use uuid::Uuid;
 
 use crate::models::wishlist::{PlannedExpenseCategory, PlannedExpenseItem};
+use crate::repository::add_column_if_missing;
 
 pub fn create_wishlist_table(conn: &mut PooledConn) -> Result<()> {
     conn.query_drop(
@@ -62,29 +63,6 @@ pub fn create_planned_expense_category_table(conn: &mut PooledConn) -> Result<()
     Ok(())
 }
 
-fn add_column_if_missing(
-    conn: &mut PooledConn,
-    table: &str,
-    column: &str,
-    alter_sql: &str,
-) -> Result<()> {
-    let exists: Option<u8> = conn.exec_first(
-        "SELECT 1
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE()
-           AND TABLE_NAME = :table
-           AND COLUMN_NAME = :column
-         LIMIT 1",
-        params! {
-            "table" => table,
-            "column" => column,
-        },
-    )?;
-    if exists.is_none() {
-        conn.query_drop(alter_sql)?;
-    }
-    Ok(())
-}
 
 pub fn select_wishlist(
     conn: &mut PooledConn,

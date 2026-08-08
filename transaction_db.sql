@@ -4,6 +4,11 @@ CREATE DATABASE IF NOT EXISTS `transaction`
 
 USE `transaction`;
 
+-- DEPRECATED as of 2026-07-27: `app_settings` moved to login_db and is now
+-- owned by login-api. transaction-api reads the global category wiring from
+-- `GET {LOGIN_API_BASE}/api/settings` and no longer touches this table. Kept
+-- here only so existing dumps still restore; see
+-- schema/migrations/2026-07-27_move_app_settings_to_login_db.sql.
 CREATE TABLE `app_settings` (
   `app_setting_id` char(36) NOT NULL,
   `app_setting_key` varchar(255) NOT NULL,

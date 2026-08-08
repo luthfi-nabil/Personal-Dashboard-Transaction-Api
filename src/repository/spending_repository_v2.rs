@@ -1,4 +1,7 @@
-use crate::models::spending::{SpendingCategoryV2, SpendingParam, SpendingV2};
+use crate::models::spending::{
+    SpendingCategoryV2, SpendingDetailV2, SpendingParam, SpendingV2,
+};
+use crate::repository::add_column_if_missing;
 use chrono::NaiveDateTime;
 use mysql::prelude::*;
 use mysql::*;
@@ -31,6 +34,33 @@ pub fn create_spending_table(conn: &mut PooledConn) -> Result<()> {
             created_by TEXT NOT NULL,
             is_active INTEGER NOT NULL DEFAULT 1
         )",
+    )?;
+    Ok(())
+}
+
+pub fn create_spending_detail_table(conn: &mut PooledConn) -> Result<()> {
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS spending_detail (
+            spending_detail_id CHAR(36) PRIMARY KEY,
+            spending_id CHAR(36) NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            quantity double NOT NULL DEFAULT 1,
+            unit_price double NOT NULL DEFAULT 0,
+            amount double NOT NULL DEFAULT 0,
+            note TEXT,
+            is_checked TINYINT(1) NOT NULL DEFAULT 1,
+            created_date DATETIME NOT NULL,
+            created_by VARCHAR(255) NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            INDEX idx_spending_detail_spending (spending_id),
+            INDEX idx_spending_detail_created_by (created_by)
+        )",
+    )?;
+    add_column_if_missing(
+        conn,
+        "spending_detail",
+        "is_checked",
+        "ALTER TABLE spending_detail ADD COLUMN is_checked TINYINT(1) NOT NULL DEFAULT 1 AFTER note",
     )?;
     Ok(())
 }
@@ -273,6 +303,161 @@ pub fn insert_spending(conn: &mut PooledConn, spending: &SpendingV2) -> Result<(
         },
     )?;
 
+    Ok(())
+}
+
+/// ✅ Insert the line items belonging to a spending
+pub fn insert_spending_details(
+    conn: &mut PooledConn,
+    details: &[SpendingDetailV2],
+) -> Result<(), Box<dyn Error>> {
+    if details.is_empty() {
+        return Ok(());
+    }
+
+    let query = r#"
+        INSERT INTO spending_detail
+        (spending_detail_id, spending_id, item_name, quantity, unit_price, amount, note,
+         is_checked, created_date, created_by, is_active)
+        VALUES
+        (:id, :spending_id, :item_name, :quantity, :unit_price, :amount, :note,
+         :is_checked, :created, :by, :active)
+    "#;
+
+    for detail in details {
+        conn.exec_drop(
+            query,
+            params! {
+                "id" => detail.spending_detail_id.to_string(),
+                "spending_id" => detail.spending_id.to_string(),
+                "item_name" => &detail.item_name,
+                "quantity" => detail.quantity,
+                "unit_price" => detail.unit_price,
+                "amount" => detail.amount,
+                "note" => &detail.note,
+                "is_checked" => i32::from(detail.is_checked),
+                "created" => detail.created_date.to_string(),
+                "by" => &detail.created_by,
+                "active" => detail.is_active,
+            },
+        )?;
+    }
+
+    Ok(())
+}
+
+/// ✅ Select spending line items, optionally scoped to one spending
+pub fn select_spending_details(
+    conn: &mut PooledConn,
+    spending_id: Option<Uuid>,
+    created_by: Option<String>,
+) -> Result<Vec<SpendingDetailV2>, Box<dyn Error>> {
+    let mut query = String::from(
+        "SELECT spending_detail_id, spending_id, item_name, quantity, unit_price, amount, \
+         COALESCE(note, '') AS note, is_checked, created_date, created_by, is_active \
+         FROM spending_detail WHERE is_active = 1",
+    );
+    let mut params: Vec<mysql::Value> = Vec::new();
+
+    match &spending_id {
+        Some(val) => {
+            query.push_str(" AND spending_id = ?");
+            params.push(val.to_string().into());
+        }
+        None => {}
+    }
+
+    match &created_by {
+        Some(val) => {
+            query.push_str(" AND created_by = ?");
+            params.push(val.into());
+        }
+        None => {}
+    }
+
+    query.push_str(" ORDER BY created_date ASC, item_name ASC");
+
+    let results: Vec<SpendingDetailV2> = conn.exec_map(
+        query,
+        params,
+        |(
+            spending_detail_id,
+            spending_id,
+            item_name,
+            quantity,
+            unit_price,
+            amount,
+            note,
+            is_checked,
+            created_date,
+            created_by,
+            is_active,
+        ): (
+            String,
+            String,
+            String,
+            f64,
+            f64,
+            f64,
+            String,
+            i32,
+            NaiveDateTime,
+            String,
+            i32,
+        )| {
+            SpendingDetailV2 {
+                spending_detail_id: Uuid::parse_str(&spending_detail_id)
+                    .unwrap_or_else(|_| Uuid::nil()),
+                spending_id: Uuid::parse_str(&spending_id).unwrap_or_else(|_| Uuid::nil()),
+                item_name,
+                quantity,
+                unit_price,
+                amount,
+                note,
+                is_checked: is_checked != 0,
+                created_date,
+                created_by,
+                is_active,
+            }
+        },
+    )?;
+
+    Ok(results)
+}
+
+/// ✅ Tick / untick one line item. Returns the number of rows touched, so the
+/// caller can tell "not yours / not found" apart from a successful update.
+pub fn update_spending_detail_checked(
+    conn: &mut PooledConn,
+    spending_detail_id: Uuid,
+    created_by: &str,
+    checked: bool,
+) -> Result<u64, Box<dyn Error>> {
+    conn.exec_drop(
+        "UPDATE spending_detail SET is_checked = :is_checked
+         WHERE spending_detail_id = :id AND created_by = :created_by AND is_active = 1",
+        params! {
+            "id" => spending_detail_id.to_string(),
+            "created_by" => created_by,
+            "is_checked" => i32::from(checked),
+        },
+    )?;
+    Ok(conn.affected_rows())
+}
+
+/// ✅ Delete every line item of a spending (used when the spending is deleted)
+pub fn delete_spending_details(
+    conn: &mut PooledConn,
+    spending_id: Uuid,
+    created_by: &str,
+) -> Result<(), Box<dyn Error>> {
+    conn.exec_drop(
+        "DELETE FROM spending_detail WHERE spending_id = :id AND created_by = :created_by",
+        params! {
+            "id" => spending_id.to_string(),
+            "created_by" => created_by,
+        },
+    )?;
     Ok(())
 }
 

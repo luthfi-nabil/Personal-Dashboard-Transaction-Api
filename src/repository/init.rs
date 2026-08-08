@@ -2,15 +2,17 @@ use mysql::PooledConn;
 
 use crate::helper::connection::establish_connection_v2;
 use crate::repository::activity_repository::create_activity_category_table;
-use crate::repository::app_setting_repository::{ensure_default_settings, init_setting_table};
+use crate::repository::consumable_repository::create_consumable_table;
 use crate::repository::earning_repository_v2::{
     create_earning_category_table as create_earning_category_table_v2,
     create_earning_table as create_earning_table_v2,
 };
+use crate::repository::investment_repository::create_investment_table;
 use crate::repository::routine_repository::{create_routine_payment_table, create_routine_table};
 use crate::repository::source_repository_v2::create_source_table as create_source_table_v2;
 use crate::repository::spending_repository_v2::{
     create_spending_category_table as create_spending_category_table_v2,
+    create_spending_detail_table as create_spending_detail_table_v2,
     create_spending_table as create_spending_table_v2,
 };
 use crate::repository::wishlist_repository::{
@@ -23,6 +25,8 @@ pub fn init_create_table_v2() {
     create_earning_category_table_v2(&mut conn);
     create_earning_table_v2(&mut conn);
     create_spending_table_v2(&mut conn);
+    create_spending_detail_table_v2(&mut conn)
+        .expect("Failed to initialize spending detail table");
     create_planned_expense_category_table(&mut conn)
         .expect("Failed to initialize planned expense category table");
     create_wishlist_table(&mut conn).expect("Failed to initialize wishlist table");
@@ -30,6 +34,7 @@ pub fn init_create_table_v2() {
     create_routine_payment_table(&mut conn).expect("Failed to initialize routine payment table");
     create_activity_category_table(&mut conn)
         .expect("Failed to initialize activity category table");
-    init_setting_table(&mut conn).expect("Failed to initialize app settings table");
-    ensure_default_settings(&mut conn).expect("Failed to ensure default app settings");
+    create_consumable_table(&mut conn).expect("Failed to initialize consumable table");
+    create_investment_table(&mut conn).expect("Failed to initialize investment table");
+    // `app_settings` is owned by login-api (login_db) — nothing to create here.
 }

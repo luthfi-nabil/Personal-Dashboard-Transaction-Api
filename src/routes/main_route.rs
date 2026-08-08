@@ -4,13 +4,18 @@ use std::env;
 use crate::handlers::activity_handler::{
     delete_activity_category_api, get_activity_categories_api, post_activity_category_api,
 };
-use crate::handlers::app_setting_handler::get_all_setting_api;
+use crate::handlers::consumable_handler::{
+    delete_consumable_api, get_consumables_api, post_consumable_api, put_consumable_out_api,
+};
 use crate::handlers::debt_handler::{get_debt, post_debt_api, update_debt_status};
 use crate::handlers::earning_handler_v2::{
     delete_earning_api_v2, delete_earning_category_api_v2, get_all_earning_categories_api_v2,
     get_all_earnings_api_v2, post_earning_api_v2, post_earning_category_api_v2,
 };
 use crate::handlers::flutter_sync_handler::{get_sync, post_sync_push};
+use crate::handlers::investment_handler::{
+    delete_investment_api, get_investments_api, post_investment_api, put_investment_price_api,
+};
 use crate::handlers::routine_handler::{
     delete_routine_api, get_routine_payments_api, get_routines_api, post_routine_api,
     post_routine_payment_api,
@@ -20,7 +25,8 @@ use crate::handlers::source_handler_v2::{
 };
 use crate::handlers::spending_handler_v2::{
     delete_spending_api_v2, delete_spending_category_api_v2, get_all_spending_categories_api_v2,
-    get_all_spendings_api_v2, post_spending_api_v2, post_spending_category_api_v2,
+    get_all_spendings_api_v2, get_spending_details_api_v2, get_spending_details_by_id_api_v2,
+    post_spending_api_v2, post_spending_category_api_v2, put_spending_detail_checked_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
 use crate::handlers::wishlist_handler::{
@@ -70,6 +76,18 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route("/spendings", web::get().to(get_all_spendings_api_v2))
             .route("/spendings", web::post().to(post_spending_api_v2))
             .route(
+                "/spending-details",
+                web::get().to(get_spending_details_api_v2),
+            )
+            .route(
+                "/spending-details/{spending_detail_id}/checked",
+                web::put().to(put_spending_detail_checked_api_v2),
+            )
+            .route(
+                "/spendings/{spending_id}/details",
+                web::get().to(get_spending_details_by_id_api_v2),
+            )
+            .route(
                 "/spendings/{spending_id}",
                 web::delete().to(delete_spending_api_v2),
             )
@@ -88,7 +106,6 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route("/debt", web::get().to(get_debt))
             .route("/debt", web::post().to(post_debt_api))
             .route("/debt-status", web::put().to(update_debt_status))
-            .route("/settings", web::get().to(get_all_setting_api))
             .route("/planned-expenses", web::get().to(get_planned_expenses_api))
             .route(
                 "/planned-expenses",
@@ -136,6 +153,26 @@ pub fn init(cfg: &mut web::ServiceConfig) {
                 "/wishlist/{wishlist_id}",
                 web::delete().to(delete_planned_expense_api),
             )
+            .route("/consumables", web::get().to(get_consumables_api))
+            .route("/consumables", web::post().to(post_consumable_api))
+            .route(
+                "/consumables/{consumable_id}/out",
+                web::put().to(put_consumable_out_api),
+            )
+            .route(
+                "/consumables/{consumable_id}",
+                web::delete().to(delete_consumable_api),
+            )
+            .route("/investments", web::get().to(get_investments_api))
+            .route("/investments", web::post().to(post_investment_api))
+            .route(
+                "/investments/{investment_id}/price",
+                web::put().to(put_investment_price_api),
+            )
+            .route(
+                "/investments/{investment_id}",
+                web::delete().to(delete_investment_api),
+            )
             .route("/routines", web::get().to(get_routines_api))
             .route("/routines", web::post().to(post_routine_api))
             .route(
@@ -156,5 +193,7 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route("/sync", web::get().to(get_sync))
             .route("/sync/push", web::post().to(post_sync_push)),
     );
-    cfg.service(web::scope("/api").route("/settings", web::get().to(get_all_setting_api)));
+    // `GET/POST /api/user/settings` and `GET /api/settings` now live in
+    // login-api; this service reads the category wiring from there through
+    // `helper::settings_client`.
 }

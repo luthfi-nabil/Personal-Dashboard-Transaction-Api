@@ -1,7 +1,9 @@
 pub mod activity;
 pub mod app_setting;
+pub mod consumable;
 pub mod debt;
 pub mod earning;
+pub mod investment;
 pub mod responses;
 pub mod routine;
 pub mod source;
