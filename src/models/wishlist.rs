@@ -22,6 +22,10 @@ pub struct PlannedExpenseItem {
     pub is_active: i32,
 }
 
+/// Request body for `POST /api/user/planned-expenses`. `created_date` is
+/// optional so older clients keep working; the Flutter app sends the moment the
+/// item was entered, which for one queued in local mode is earlier than the
+/// push.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlannedExpenseInput {
     #[serde(alias = "wishlist_id")]
@@ -33,12 +37,19 @@ pub struct PlannedExpenseInput {
     pub category: Option<String>,
     pub notes: Option<String>,
     pub priority: String,
+    #[serde(default)]
+    pub created_date: Option<NaiveDateTime>,
 }
 
+/// Request body for `PUT /api/user/planned-expenses/{id}/status`. `changed_at`
+/// is when the item was fulfilled or canceled on the device; see
+/// [PlannedExpenseInput] for why it is optional.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlannedExpenseStatusInput {
     pub status: String,
     pub fulfilled_price: Option<f64>,
+    #[serde(default)]
+    pub changed_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

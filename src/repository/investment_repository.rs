@@ -47,7 +47,8 @@ pub fn select_investments(
          FROM investment
          WHERE created_by = :created_by AND is_active = 1
          ORDER BY
-           CASE kind WHEN 'mutual_fund' THEN 0 WHEN 'gold' THEN 1 ELSE 2 END,
+           CASE kind WHEN 'mutual_fund' THEN 0 WHEN 'gold' THEN 1
+                     WHEN 'silver' THEN 2 ELSE 3 END,
            acquired_date DESC,
            name ASC",
         params! { "created_by" => created_by },

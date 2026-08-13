@@ -58,7 +58,11 @@ pub async fn post_planned_expense_api(
 ) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
-    let now = Local::now().naive_local();
+    // A client that queued the item offline sends the time it was entered;
+    // everyone else gets "now".
+    let now = body
+        .created_date
+        .unwrap_or_else(|| Local::now().naive_local());
     let transaction_type = body
         .transaction_type
         .clone()
@@ -122,6 +126,7 @@ pub async fn put_planned_expense_status_api(
         &created_by,
         status,
         body.fulfilled_price,
+        body.changed_at,
     ) {
         Ok(_) => HttpResponse::Ok().json(ok_response("Planned expense status updated", None)),
         Err(err) => HttpResponse::InternalServerError().json(err_response(

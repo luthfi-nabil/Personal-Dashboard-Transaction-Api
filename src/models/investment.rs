@@ -7,7 +7,7 @@ use uuid::Uuid;
 /// Deliberately not a `source`: source balances are liquid cash, these are
 /// not, which is why the clients' headline figure is now labelled "Liquid".
 ///
-/// A single shape covers both kinds of holding. `units` and the two unit
+/// A single shape covers every kind of holding. `units` and the two unit
 /// prices mean whatever [kind] implies:
 ///
 /// | kind          | units       | unit prices    |
@@ -15,6 +15,7 @@ use uuid::Uuid;
 /// | `mutual_fund` | units owned | NAB per unit   |
 /// | `gold`        | grams       | price per gram |
 /// | `silver`      | grams       | price per gram |
+/// | `others`      | units owned | price per unit |
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Investment {
     pub investment_id: Uuid,
@@ -40,10 +41,11 @@ pub struct Investment {
     pub is_active: i32,
 }
 
-/// The three holdings the clients know how to render. Anything else is
-/// rejected rather than stored, so a typo cannot create a fourth silent
-/// category that no screen groups.
-pub const INVESTMENT_KINDS: [&str; 3] = ["mutual_fund", "gold", "silver"];
+/// The holdings the clients know how to render. Anything else is rejected
+/// rather than stored, so a typo cannot create a silent category that no
+/// screen groups - `others` is the catch-all for everything that does not fit
+/// the named three (crypto, bonds, stocks), and it is priced by hand.
+pub const INVESTMENT_KINDS: [&str; 4] = ["mutual_fund", "gold", "silver", "others"];
 
 /// Request body for `POST /api/user/investments`.
 ///

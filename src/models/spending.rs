@@ -106,6 +106,11 @@ pub struct SpendingCreateV2 {
     pub source: String,
     #[serde(default)]
     pub details: Vec<SpendingDetailParam>,
+    /// When the spending was entered. Optional so older clients keep working;
+    /// the Flutter app sends it so a spending queued in local mode keeps the
+    /// time it was entered instead of the time it was finally pushed.
+    #[serde(default)]
+    pub created_date: Option<NaiveDateTime>,
 }
 
 /// Query string for `GET /api/user/spending-details`.

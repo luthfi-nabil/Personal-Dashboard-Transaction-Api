@@ -98,7 +98,12 @@ pub async fn post_spending_api_v2(
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
     let new_spending_id = Uuid::new_v4();
-    let created_date = Local::now().naive_local();
+    // A client that queued the spending offline sends the time it was entered;
+    // everyone else gets "now". The line items share it, so a breakdown never
+    // drifts away from its header.
+    let created_date = spending
+        .created_date
+        .unwrap_or_else(|| Local::now().naive_local());
 
     // Line items are optional. When the client sends details but leaves
     // total_amount at 0 (e.g. the receipt scanner), the total is derived from

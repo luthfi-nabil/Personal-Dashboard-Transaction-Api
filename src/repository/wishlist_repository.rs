@@ -193,8 +193,12 @@ pub fn update_wishlist_status(
     created_by: &str,
     status: &str,
     fulfilled_price: Option<f64>,
+    changed_at: Option<chrono::NaiveDateTime>,
 ) -> Result<(), Box<dyn Error>> {
-    let now = Local::now().naive_local();
+    // A status flipped while the API was unreachable carries the moment it was
+    // flipped on the device, so `fulfilled_at` / `canceled_at` do not slide to
+    // the time sync happened to run.
+    let now = changed_at.unwrap_or_else(|| Local::now().naive_local());
     conn.exec_drop(
         "UPDATE wishlist
          SET status = :status,

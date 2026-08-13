@@ -70,7 +70,11 @@ pub async fn get_routine_payments_api(req: HttpRequest) -> HttpResponse {
 pub async fn post_routine_api(req: HttpRequest, body: web::Json<RoutineInput>) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
-    let now = Local::now().naive_local();
+    // A client that queued the routine offline sends the time it was entered;
+    // everyone else gets "now".
+    let now = body
+        .created_date
+        .unwrap_or_else(|| Local::now().naive_local());
     let item = RoutineTransaction {
         routine_id: body.routine_id.unwrap_or_else(Uuid::new_v4),
         item_name: body.item_name.clone(),
@@ -131,7 +135,10 @@ pub async fn post_routine_payment_api(
         spending_category: routine.spending_category,
         source_id: body.source_id,
         source: body.source.clone(),
-        bought_at: Local::now().naive_local(),
+        // Same as the routine itself: a payment confirmed while offline keeps
+        // the moment it was confirmed, not the moment sync pushed it. This is
+        // also what `insert_routine_payment` copies into `last_bought_at`.
+        bought_at: body.bought_at.unwrap_or_else(|| Local::now().naive_local()),
         created_by,
         is_active: 1,
     };

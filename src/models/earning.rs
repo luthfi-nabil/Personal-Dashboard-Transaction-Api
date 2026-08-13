@@ -37,6 +37,21 @@ pub struct EarningV2 {
     pub is_active: i32,
 }
 
+/// Request body for `POST /api/user/earnings`. `created_date` is optional so
+/// older clients keep working; the Flutter app sends the moment the earning was
+/// entered, which for one queued in local mode is earlier than the push.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EarningCreateV2 {
+    pub total_amount: f64,
+    pub description: String,
+    pub earning_category_id: Uuid,
+    pub earning_category: String,
+    pub source_id: Uuid,
+    pub source: String,
+    #[serde(default)]
+    pub created_date: Option<NaiveDateTime>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EarningParam {
     pub description: Option<String>,

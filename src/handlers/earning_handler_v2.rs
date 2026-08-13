@@ -1,6 +1,6 @@
 use crate::helper::connection::establish_connection_v2;
 use crate::helper::settings_client::global_category_wiring;
-use crate::models::earning::{EarningCategoryV2, EarningParam, EarningV2};
+use crate::models::earning::{EarningCategoryV2, EarningCreateV2, EarningParam, EarningV2};
 use crate::models::responses::{DatabaseResult, Response};
 use crate::models::source::SourceV2;
 use crate::repository::earning_repository_v2::{
@@ -83,9 +83,17 @@ pub async fn get_all_earning_categories_api_v2(req: HttpRequest) -> HttpResponse
     }
 }
 
-pub async fn post_earning_api_v2(req: HttpRequest, earning: web::Json<EarningV2>) -> HttpResponse {
+pub async fn post_earning_api_v2(
+    req: HttpRequest,
+    earning: web::Json<EarningCreateV2>,
+) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
+    // A client that queued the earning offline sends the time it was entered;
+    // everyone else gets "now".
+    let created_date = earning
+        .created_date
+        .unwrap_or_else(|| Local::now().naive_local());
     let mut new_earning = EarningV2 {
         earning_id: Uuid::new_v4(),
         total_amount: earning.total_amount,
@@ -94,7 +102,7 @@ pub async fn post_earning_api_v2(req: HttpRequest, earning: web::Json<EarningV2>
         earning_category: earning.earning_category.clone(),
         source_id: earning.source_id,
         source: earning.source.clone(),
-        created_date: Local::now().naive_local(),
+        created_date,
         created_by: created_by.clone().to_string(),
         is_active: 1,
     };

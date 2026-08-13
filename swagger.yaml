@@ -1183,6 +1183,16 @@ components:
         source:
           type: string
           example: "BCA Savings"
+        created_date:
+          type: string
+          format: date-time
+          description: >
+            Optional. When the earning was entered on the client, without a
+            timezone offset (e.g. `2026-08-09T20:15:30.123`). Sent by the
+            Flutter app so an earning queued while offline keeps the time it was
+            entered instead of the time sync pushed it. Omitted by other
+            clients, which get the server's "now" as before.
+          example: "2026-08-09T20:15:30.123"
 
     Earning:
       allOf:
@@ -1297,6 +1307,17 @@ components:
             present and `total_amount` is 0, the total is derived from the items.
           items:
             $ref: "#/components/schemas/SpendingDetailInput"
+        created_date:
+          type: string
+          format: date-time
+          description: >
+            Optional. When the spending was entered on the client, without a
+            timezone offset (e.g. `2026-08-09T20:15:30.123`). Sent by the
+            Flutter app so a spending queued while offline keeps the time it was
+            entered instead of the time sync pushed it. Omitted by other
+            clients, which get the server's "now" as before. The line items
+            share this timestamp.
+          example: "2026-08-09T20:15:30.123"
 
     SpendingDetailInput:
       type: object
@@ -1443,7 +1464,8 @@ components:
       required: [kind, name]
       description: >
         `units` and the unit prices mean whatever `kind` implies: units owned
-        and NAB per unit for a fund, grams and price per gram for metal.
+        and NAB per unit for a fund, grams and price per gram for metal, units
+        owned and price per unit for `others`.
       properties:
         investment_id:
           type: string
@@ -1451,7 +1473,10 @@ components:
           description: Client-generated, so a holding queued offline keeps its id.
         kind:
           type: string
-          enum: [mutual_fund, gold, silver]
+          enum: [mutual_fund, gold, silver, others]
+          description: >
+            `others` is the catch-all for anything that is not a fund or a
+            metal - crypto, bonds, stocks - and is always priced by hand.
           example: "gold"
         name:
           type: string
@@ -1464,7 +1489,7 @@ components:
         units:
           type: number
           format: double
-          description: Units owned for a fund, grams for metal.
+          description: Units owned for a fund or `others`, grams for metal.
           example: 5
         buy_unit_price:
           type: number
@@ -1661,6 +1686,15 @@ components:
           type: string
           enum: [high, medium, low]
           example: high
+        created_date:
+          type: string
+          format: date-time
+          description: >
+            Optional. When the item was entered on the client, without a
+            timezone offset (e.g. `2026-08-09T20:15:30.123`). Sent by the
+            Flutter app so an item queued while offline keeps the time it was
+            entered instead of the time it was finally pushed. Omitted by older
+            clients, which get the server's "now" as before.
 
     PlannedExpenseStatusInput:
       type: object
@@ -1673,6 +1707,13 @@ components:
           type: number
           format: double
           nullable: true
+        changed_at:
+          type: string
+          format: date-time
+          description: >
+            Optional. When the item was fulfilled or canceled on the client;
+            stored as `fulfilled_at` / `canceled_at`. See
+            `PlannedExpenseInput.created_date`.
 
     PlannedExpense:
       allOf:

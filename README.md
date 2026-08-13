@@ -126,8 +126,10 @@ With `APP_ENV=development`, browse to `/docs` for the Swagger UI, backed by
   `0` the total is derived from the items. Used by the Flutter receipt scanner,
   which OCRs a printed price list and posts the rows the user confirmed.
 - `GET/POST/DELETE /api/user/investments[/{investment_id}]` — investment
-  holdings. `kind` is one of `mutual_fund`, `gold`, `silver`; `units` and the
-  unit prices mean units + NAB for a fund and grams + price-per-gram for metal.
+  holdings. `kind` is one of `mutual_fund`, `gold`, `silver`, `others`; `units`
+  and the unit prices mean units + NAB for a fund, grams + price-per-gram for
+  metal, and units + price-per-unit for `others` (crypto, bonds, stocks —
+  anything priced by hand).
   `POST` upserts on the client-generated `investment_id` so offline writes can
   be replayed safely.
 - `PUT /api/user/investments/{investment_id}/price` — record a fresh valuation
