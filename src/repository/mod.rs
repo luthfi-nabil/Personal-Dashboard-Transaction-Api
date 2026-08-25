@@ -7,10 +7,11 @@ pub mod debt_repository;
 pub mod earning_repository_v2;
 pub mod init;
 pub mod investment_repository;
+pub mod planned_expense_repository;
+pub mod planned_transaction_repository;
 pub mod routine_repository;
 pub mod source_repository_v2;
 pub mod spending_repository_v2;
-pub mod wishlist_repository;
 
 /// Runs `alter_sql` only when `column` is not already on `table`.
 ///

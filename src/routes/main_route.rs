@@ -29,10 +29,14 @@ use crate::handlers::spending_handler_v2::{
     post_spending_api_v2, post_spending_category_api_v2, put_spending_detail_checked_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
-use crate::handlers::wishlist_handler::{
+use crate::handlers::planned_expense_handler::{
     delete_planned_expense_api, delete_planned_expense_category_api,
     get_planned_expense_categories_api, get_planned_expenses_api, post_planned_expense_api,
     post_planned_expense_category_api, put_planned_expense_status_api,
+};
+use crate::handlers::planned_transaction_handler::{
+    get_planned_transaction_details_api, get_planned_transactions_api,
+    post_planned_transaction_api, post_planned_transaction_detail_api,
 };
 use crate::route_middleware::get_user::CreatedByMiddleware;
 pub fn init(cfg: &mut web::ServiceConfig) {
@@ -124,6 +128,22 @@ pub fn init(cfg: &mut web::ServiceConfig) {
                 web::delete().to(delete_planned_expense_category_api),
             )
             .route(
+                "/planned-transactions",
+                web::get().to(get_planned_transactions_api),
+            )
+            .route(
+                "/planned-transactions",
+                web::post().to(post_planned_transaction_api),
+            )
+            .route(
+                "/planned-transaction-details",
+                web::get().to(get_planned_transaction_details_api),
+            )
+            .route(
+                "/planned-transactions/{planned_transaction_id}/details",
+                web::post().to(post_planned_transaction_detail_api),
+            )
+            .route(
                 "/activity-categories",
                 web::get().to(get_activity_categories_api),
             )
@@ -141,16 +161,6 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             )
             .route(
                 "/planned-expenses/{planned_expense_id}",
-                web::delete().to(delete_planned_expense_api),
-            )
-            .route("/wishlist", web::get().to(get_planned_expenses_api))
-            .route("/wishlist", web::post().to(post_planned_expense_api))
-            .route(
-                "/wishlist/{wishlist_id}/status",
-                web::put().to(put_planned_expense_status_api),
-            )
-            .route(
-                "/wishlist/{wishlist_id}",
                 web::delete().to(delete_planned_expense_api),
             )
             .route("/consumables", web::get().to(get_consumables_api))

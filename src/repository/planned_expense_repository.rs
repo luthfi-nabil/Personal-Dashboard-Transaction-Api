@@ -4,13 +4,44 @@ use mysql::*;
 use std::error::Error;
 use uuid::Uuid;
 
-use crate::models::wishlist::{PlannedExpenseCategory, PlannedExpenseItem};
+use crate::models::planned_expense::{PlannedExpenseCategory, PlannedExpenseItem};
 use crate::repository::add_column_if_missing;
 
-pub fn create_wishlist_table(conn: &mut PooledConn) -> Result<()> {
+/// Renames the legacy `wishlist` table (and its `wishlist_id` primary key
+/// column) to `planned_expense` / `planned_expense_id` in place, so databases
+/// created before the rename keep their data instead of starting over against
+/// a freshly created empty table.
+fn migrate_wishlist_table_if_needed(conn: &mut PooledConn) -> Result<()> {
+    let planned_expense_exists: Option<u8> = conn.exec_first(
+        "SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'planned_expense'
+         LIMIT 1",
+        (),
+    )?;
+    if planned_expense_exists.is_some() {
+        return Ok(());
+    }
+    let wishlist_exists: Option<u8> = conn.exec_first(
+        "SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wishlist'
+         LIMIT 1",
+        (),
+    )?;
+    if wishlist_exists.is_none() {
+        return Ok(());
+    }
+    conn.query_drop("RENAME TABLE wishlist TO planned_expense")?;
     conn.query_drop(
-        "CREATE TABLE IF NOT EXISTS wishlist (
-            wishlist_id CHAR(36) PRIMARY KEY,
+        "ALTER TABLE planned_expense CHANGE COLUMN wishlist_id planned_expense_id CHAR(36) NOT NULL",
+    )?;
+    Ok(())
+}
+
+pub fn create_planned_expense_table(conn: &mut PooledConn) -> Result<()> {
+    migrate_wishlist_table_if_needed(conn)?;
+    conn.query_drop(
+        "CREATE TABLE IF NOT EXISTS planned_expense (
+            planned_expense_id CHAR(36) PRIMARY KEY,
             item_name VARCHAR(255) NOT NULL,
             price DOUBLE NOT NULL,
             transaction_type VARCHAR(32) NOT NULL DEFAULT 'spending',
@@ -30,21 +61,21 @@ pub fn create_wishlist_table(conn: &mut PooledConn) -> Result<()> {
     )?;
     add_column_if_missing(
         conn,
-        "wishlist",
+        "planned_expense",
         "transaction_type",
-        "ALTER TABLE wishlist ADD COLUMN transaction_type VARCHAR(32) NOT NULL DEFAULT 'spending' AFTER price",
+        "ALTER TABLE planned_expense ADD COLUMN transaction_type VARCHAR(32) NOT NULL DEFAULT 'spending' AFTER price",
     )?;
     add_column_if_missing(
         conn,
-        "wishlist",
+        "planned_expense",
         "category_id",
-        "ALTER TABLE wishlist ADD COLUMN category_id CHAR(36) NULL AFTER transaction_type",
+        "ALTER TABLE planned_expense ADD COLUMN category_id CHAR(36) NULL AFTER transaction_type",
     )?;
     add_column_if_missing(
         conn,
-        "wishlist",
+        "planned_expense",
         "category",
-        "ALTER TABLE wishlist ADD COLUMN category VARCHAR(255) NULL AFTER category_id",
+        "ALTER TABLE planned_expense ADD COLUMN category VARCHAR(255) NULL AFTER category_id",
     )?;
     Ok(())
 }
@@ -64,16 +95,16 @@ pub fn create_planned_expense_category_table(conn: &mut PooledConn) -> Result<()
 }
 
 
-pub fn select_wishlist(
+pub fn select_planned_expenses(
     conn: &mut PooledConn,
     created_by: &str,
 ) -> Result<Vec<PlannedExpenseItem>, Box<dyn Error>> {
     let rows: Vec<Row> = conn.exec(
-        "SELECT wishlist_id, item_name, price, transaction_type, category_id, category,
+        "SELECT planned_expense_id, item_name, price, transaction_type, category_id, category,
             notes, priority, status,
             fulfilled_price, fulfilled_at, canceled_at, created_date, updated_date,
             created_by
-         FROM wishlist
+         FROM planned_expense
          WHERE created_by = :created_by AND is_active = 1
          ORDER BY
            CASE status WHEN 'active' THEN 0 ELSE 1 END,
@@ -84,13 +115,14 @@ pub fn select_wishlist(
     Ok(rows
         .into_iter()
         .map(|row| {
-            let wishlist_id = row
-                .get::<Option<String>, _>("wishlist_id")
+            let planned_expense_id = row
+                .get::<Option<String>, _>("planned_expense_id")
                 .flatten()
                 .unwrap_or_default();
             let category_id = row.get::<Option<String>, _>("category_id").flatten();
             PlannedExpenseItem {
-                planned_expense_id: Uuid::parse_str(&wishlist_id).unwrap_or_else(|_| Uuid::nil()),
+                planned_expense_id: Uuid::parse_str(&planned_expense_id)
+                    .unwrap_or_else(|_| Uuid::nil()),
                 item_name: row
                     .get::<Option<String>, _>("item_name")
                     .flatten()
@@ -135,13 +167,13 @@ pub fn select_wishlist(
         .collect())
 }
 
-pub fn upsert_wishlist(
+pub fn upsert_planned_expense(
     conn: &mut PooledConn,
     item: &PlannedExpenseItem,
 ) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
-        "INSERT INTO wishlist (
-            wishlist_id, item_name, price, transaction_type, category_id, category,
+        "INSERT INTO planned_expense (
+            planned_expense_id, item_name, price, transaction_type, category_id, category,
             notes, priority, status,
             fulfilled_price, fulfilled_at, canceled_at, created_date, updated_date,
             created_by, is_active
@@ -187,9 +219,9 @@ pub fn upsert_wishlist(
     Ok(())
 }
 
-pub fn update_wishlist_status(
+pub fn update_planned_expense_status(
     conn: &mut PooledConn,
-    wishlist_id: &str,
+    planned_expense_id: &str,
     created_by: &str,
     status: &str,
     fulfilled_price: Option<f64>,
@@ -200,15 +232,15 @@ pub fn update_wishlist_status(
     // the time sync happened to run.
     let now = changed_at.unwrap_or_else(|| Local::now().naive_local());
     conn.exec_drop(
-        "UPDATE wishlist
+        "UPDATE planned_expense
          SET status = :status,
              fulfilled_price = CASE WHEN :status = 'fulfilled' THEN :fulfilled_price ELSE fulfilled_price END,
              fulfilled_at = CASE WHEN :status = 'fulfilled' THEN :now ELSE fulfilled_at END,
              canceled_at = CASE WHEN :status = 'canceled' THEN :now ELSE canceled_at END,
              updated_date = :now
-         WHERE wishlist_id = :id AND created_by = :created_by",
+         WHERE planned_expense_id = :id AND created_by = :created_by",
         params! {
-            "id" => wishlist_id,
+            "id" => planned_expense_id,
             "created_by" => created_by,
             "status" => status,
             "fulfilled_price" => fulfilled_price,
@@ -218,16 +250,16 @@ pub fn update_wishlist_status(
     Ok(())
 }
 
-pub fn remove_wishlist(
+pub fn remove_planned_expense(
     conn: &mut PooledConn,
-    wishlist_id: &str,
+    planned_expense_id: &str,
     created_by: &str,
 ) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
-        "UPDATE wishlist SET is_active = 0, updated_date = :now
-         WHERE wishlist_id = :id AND created_by = :created_by",
+        "UPDATE planned_expense SET is_active = 0, updated_date = :now
+         WHERE planned_expense_id = :id AND created_by = :created_by",
         params! {
-            "id" => wishlist_id,
+            "id" => planned_expense_id,
             "created_by" => created_by,
             "now" => Local::now().naive_local().to_string(),
         },

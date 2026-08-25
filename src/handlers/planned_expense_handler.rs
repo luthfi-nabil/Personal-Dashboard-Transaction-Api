@@ -3,14 +3,15 @@ use chrono::Local;
 use uuid::Uuid;
 
 use crate::helper::connection::establish_connection_v2;
-use crate::models::responses::Response;
-use crate::models::wishlist::{
+use crate::models::planned_expense::{
     PlannedExpenseCategory, PlannedExpenseCategoryInput, PlannedExpenseInput, PlannedExpenseItem,
     PlannedExpenseStatusInput,
 };
-use crate::repository::wishlist_repository::{
-    delete_planned_expense_category, insert_planned_expense_category, remove_wishlist,
-    select_planned_expense_categories, select_wishlist, update_wishlist_status, upsert_wishlist,
+use crate::models::responses::Response;
+use crate::repository::planned_expense_repository::{
+    delete_planned_expense_category, insert_planned_expense_category,
+    remove_planned_expense, select_planned_expense_categories, select_planned_expenses,
+    update_planned_expense_status, upsert_planned_expense,
 };
 use crate::route_middleware::get_user::CreatedBy;
 
@@ -40,7 +41,7 @@ pub async fn get_planned_expenses_api(req: HttpRequest) -> HttpResponse {
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
 
-    match select_wishlist(&mut conn, &created_by) {
+    match select_planned_expenses(&mut conn, &created_by) {
         Ok(items) => HttpResponse::Ok().json(ok_response(
             "Success get planned expenses",
             Some(serde_json::to_value(items).unwrap()),
@@ -93,7 +94,7 @@ pub async fn post_planned_expense_api(
         is_active: 1,
     };
 
-    match upsert_wishlist(&mut conn, &item) {
+    match upsert_planned_expense(&mut conn, &item) {
         Ok(_) => HttpResponse::Ok().json(ok_response(
             "Planned expense saved successfully",
             Some(serde_json::to_value(item).unwrap()),
@@ -120,7 +121,7 @@ pub async fn put_planned_expense_status_api(
         ));
     }
 
-    match update_wishlist_status(
+    match update_planned_expense_status(
         &mut conn,
         &path.into_inner(),
         &created_by,
@@ -140,7 +141,7 @@ pub async fn delete_planned_expense_api(req: HttpRequest, path: web::Path<String
     let mut conn = establish_connection_v2().expect("Failed to connect to database");
     let created_by = req.extensions().get::<CreatedBy>().unwrap().0.clone();
 
-    match remove_wishlist(&mut conn, &path.into_inner(), &created_by) {
+    match remove_planned_expense(&mut conn, &path.into_inner(), &created_by) {
         Ok(_) => HttpResponse::Ok().json(ok_response("Planned expense removed", None)),
         Err(err) => HttpResponse::InternalServerError().json(err_response(
             "Failed to remove planned expense",

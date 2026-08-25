@@ -15,8 +15,11 @@ use crate::repository::spending_repository_v2::{
     create_spending_detail_table as create_spending_detail_table_v2,
     create_spending_table as create_spending_table_v2,
 };
-use crate::repository::wishlist_repository::{
-    create_planned_expense_category_table, create_wishlist_table,
+use crate::repository::planned_expense_repository::{
+    create_planned_expense_category_table, create_planned_expense_table,
+};
+use crate::repository::planned_transaction_repository::{
+    create_planned_transaction_detail_table, create_planned_transaction_table,
 };
 pub fn init_create_table_v2() {
     let mut conn: PooledConn = establish_connection_v2().expect("Failed to connect to database");
@@ -29,12 +32,16 @@ pub fn init_create_table_v2() {
         .expect("Failed to initialize spending detail table");
     create_planned_expense_category_table(&mut conn)
         .expect("Failed to initialize planned expense category table");
-    create_wishlist_table(&mut conn).expect("Failed to initialize wishlist table");
+    create_planned_expense_table(&mut conn).expect("Failed to initialize planned expense table");
     create_routine_table(&mut conn).expect("Failed to initialize routine transaction table");
     create_routine_payment_table(&mut conn).expect("Failed to initialize routine payment table");
     create_activity_category_table(&mut conn)
         .expect("Failed to initialize activity category table");
     create_consumable_table(&mut conn).expect("Failed to initialize consumable table");
     create_investment_table(&mut conn).expect("Failed to initialize investment table");
+    create_planned_transaction_table(&mut conn)
+        .expect("Failed to initialize planned transaction table");
+    create_planned_transaction_detail_table(&mut conn)
+        .expect("Failed to initialize planned transaction detail table");
     // `app_settings` is owned by login-api (login_db) — nothing to create here.
 }
