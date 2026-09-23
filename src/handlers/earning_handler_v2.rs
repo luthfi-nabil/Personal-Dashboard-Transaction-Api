@@ -7,6 +7,7 @@ use crate::repository::earning_repository_v2::{
     delete_earning, delete_earning_category, insert_earning, insert_earning_category,
     select_all_earning_categories, select_earning_category, select_earnings,
 };
+use crate::repository::group_repository::link_transaction_to_group;
 use crate::repository::source_repository_v2::select_source;
 use crate::route_middleware::get_user::CreatedBy;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
@@ -162,6 +163,18 @@ pub async fn post_earning_api_v2(
                 success: false,
             };
         } else {
+            if let Some(group_id) = earning.group_id {
+                if let Err(err) = link_transaction_to_group(
+                    &mut conn,
+                    group_id,
+                    "earning",
+                    new_earning.earning_id,
+                    &created_by,
+                    new_earning.created_date,
+                ) {
+                    tracing::warn!("Failed to tag earning into group {}: {}", group_id, err);
+                }
+            }
             response.data = Some(serde_json::to_value(new_earning).unwrap());
         }
     } else {

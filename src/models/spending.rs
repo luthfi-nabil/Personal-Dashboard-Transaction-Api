@@ -111,6 +111,10 @@ pub struct SpendingCreateV2 {
     /// time it was entered instead of the time it was finally pushed.
     #[serde(default)]
     pub created_date: Option<NaiveDateTime>,
+    /// Spending group to tag this spending into. Ignored when the caller is
+    /// not a member - the spending itself is still saved.
+    #[serde(default)]
+    pub group_id: Option<Uuid>,
 }
 
 /// Query string for `GET /api/user/spending-details`.

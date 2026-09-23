@@ -50,6 +50,10 @@ pub struct EarningCreateV2 {
     pub source: String,
     #[serde(default)]
     pub created_date: Option<NaiveDateTime>,
+    /// Spending group to tag this earning into. Ignored when the caller is
+    /// not a member - the earning itself is still saved.
+    #[serde(default)]
+    pub group_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

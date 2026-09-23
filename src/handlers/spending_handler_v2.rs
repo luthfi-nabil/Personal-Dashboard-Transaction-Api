@@ -6,6 +6,7 @@ use crate::models::spending::{
     SpendingCategoryV2, SpendingCreateV2, SpendingDetailCheckedInput, SpendingDetailParamQuery,
     SpendingDetailV2, SpendingParam, SpendingV2,
 };
+use crate::repository::group_repository::link_transaction_to_group;
 use crate::repository::source_repository_v2::select_source;
 use crate::repository::spending_repository_v2::{
     delete_spending, delete_spending_category, delete_spending_details, insert_spending,
@@ -241,6 +242,18 @@ pub async fn post_spending_api_v2(
                     success: false,
                 };
             } else {
+                if let Some(group_id) = spending.group_id {
+                    if let Err(err) = link_transaction_to_group(
+                        &mut conn,
+                        group_id,
+                        "spending",
+                        new_spending.spending_id,
+                        &created_by,
+                        new_spending.created_date,
+                    ) {
+                        tracing::warn!("Failed to tag spending into group {}: {}", group_id, err);
+                    }
+                }
                 let mut payload = serde_json::to_value(new_spending).unwrap();
                 if let Some(obj) = payload.as_object_mut() {
                     obj.insert(

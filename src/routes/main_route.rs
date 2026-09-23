@@ -13,6 +13,19 @@ use crate::handlers::earning_handler_v2::{
     get_all_earnings_api_v2, post_earning_api_v2, post_earning_category_api_v2,
 };
 use crate::handlers::flutter_sync_handler::{get_sync, post_sync_push};
+use crate::handlers::group_balance_handler::{
+    get_group_balances_api, post_group_balance_spending_api, post_group_top_up_api,
+};
+use crate::handlers::group_handler::{
+    get_group_transactions_api, get_groups_api, post_group_api, post_group_member_api,
+    put_group_status_api,
+};
+use crate::handlers::group_plan_handler::{
+    delete_group_planned_expense_api, delete_group_routine_api, get_group_planned_expenses_api,
+    get_group_routine_payments_api, get_group_routines_api, post_group_planned_expense_api,
+    post_group_routine_api, post_group_routine_payment_api, put_group_planned_expense_fulfil_api,
+    put_group_planned_expense_review_api,
+};
 use crate::handlers::investment_handler::{
     delete_investment_api, get_investments_api, post_investment_api, put_investment_price_api,
 };
@@ -29,6 +42,9 @@ use crate::handlers::spending_handler_v2::{
     post_spending_api_v2, post_spending_category_api_v2, put_spending_detail_checked_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
+use crate::handlers::member_transfer_handler::{
+    get_member_sources_api, get_member_transfers_api, post_member_transfer_api,
+};
 use crate::handlers::planned_expense_handler::{
     delete_planned_expense_api, delete_planned_expense_category_api,
     get_planned_expense_categories_api, get_planned_expenses_api, post_planned_expense_api,
@@ -196,6 +212,81 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route(
                 "/routines/{routine_id}",
                 web::delete().to(delete_routine_api),
+            )
+            .route("/groups", web::get().to(get_groups_api))
+            .route("/groups", web::post().to(post_group_api))
+            .route(
+                "/groups/{group_id}/members",
+                web::post().to(post_group_member_api),
+            )
+            .route(
+                "/groups/{group_id}/status",
+                web::put().to(put_group_status_api),
+            )
+            .route(
+                "/group-transactions",
+                web::get().to(get_group_transactions_api),
+            )
+            .route("/group-routines", web::get().to(get_group_routines_api))
+            .route(
+                "/group-routine-payments",
+                web::get().to(get_group_routine_payments_api),
+            )
+            .route(
+                "/groups/{group_id}/routines",
+                web::post().to(post_group_routine_api),
+            )
+            .route(
+                "/groups/{group_id}/routines/{routine_id}",
+                web::delete().to(delete_group_routine_api),
+            )
+            .route(
+                "/groups/{group_id}/routines/{routine_id}/payments",
+                web::post().to(post_group_routine_payment_api),
+            )
+            .route(
+                "/group-planned-expenses",
+                web::get().to(get_group_planned_expenses_api),
+            )
+            .route(
+                "/groups/{group_id}/planned-expenses",
+                web::post().to(post_group_planned_expense_api),
+            )
+            .route(
+                "/groups/{group_id}/planned-expenses/{planned_expense_id}/review",
+                web::put().to(put_group_planned_expense_review_api),
+            )
+            .route(
+                "/groups/{group_id}/planned-expenses/{planned_expense_id}/fulfill",
+                web::put().to(put_group_planned_expense_fulfil_api),
+            )
+            .route(
+                "/groups/{group_id}/planned-expenses/{planned_expense_id}",
+                web::delete().to(delete_group_planned_expense_api),
+            )
+            .route(
+                "/member-sources/{username}",
+                web::get().to(get_member_sources_api),
+            )
+            .route(
+                "/member-transfers",
+                web::get().to(get_member_transfers_api),
+            )
+            .route(
+                "/member-transfers",
+                web::post().to(post_member_transfer_api),
+            )
+            .route(
+                "/groups/{group_id}/balances",
+                web::get().to(get_group_balances_api),
+            )
+            .route(
+                "/groups/{group_id}/balance/top-ups",
+                web::post().to(post_group_top_up_api),
+            )
+            .route(
+                "/groups/{group_id}/balance/spendings",
+                web::post().to(post_group_balance_spending_api),
             ),
     );
     cfg.service(

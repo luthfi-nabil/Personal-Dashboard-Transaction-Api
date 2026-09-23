@@ -7,7 +7,11 @@ use crate::repository::earning_repository_v2::{
     create_earning_category_table as create_earning_category_table_v2,
     create_earning_table as create_earning_table_v2,
 };
+use crate::repository::group_balance_repository::create_group_balance_table;
+use crate::repository::group_plan_repository::create_group_plan_tables;
+use crate::repository::group_repository::create_group_tables;
 use crate::repository::investment_repository::create_investment_table;
+use crate::repository::member_transfer_repository::create_member_transfer_table;
 use crate::repository::routine_repository::{create_routine_payment_table, create_routine_table};
 use crate::repository::source_repository_v2::create_source_table as create_source_table_v2;
 use crate::repository::spending_repository_v2::{
@@ -43,5 +47,10 @@ pub fn init_create_table_v2() {
         .expect("Failed to initialize planned transaction table");
     create_planned_transaction_detail_table(&mut conn)
         .expect("Failed to initialize planned transaction detail table");
+    create_group_tables(&mut conn).expect("Failed to initialize spending group tables");
+    create_group_plan_tables(&mut conn)
+        .expect("Failed to initialize group routine/planned expense tables");
+    create_member_transfer_table(&mut conn).expect("Failed to initialize member transfer table");
+    create_group_balance_table(&mut conn).expect("Failed to initialize group balance table");
     // `app_settings` is owned by login-api (login_db) — nothing to create here.
 }
