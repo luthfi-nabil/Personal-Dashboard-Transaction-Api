@@ -16,6 +16,9 @@ use crate::handlers::flutter_sync_handler::{get_sync, post_sync_push};
 use crate::handlers::group_balance_handler::{
     get_group_balances_api, post_group_balance_spending_api, post_group_top_up_api,
 };
+use crate::handlers::group_category_handler::{
+    delete_group_category_api, get_group_categories_api, post_group_category_api,
+};
 use crate::handlers::group_handler::{
     get_group_transactions_api, get_groups_api, post_group_api, post_group_member_api,
     put_group_status_api,
@@ -25,6 +28,15 @@ use crate::handlers::group_plan_handler::{
     get_group_routine_payments_api, get_group_routines_api, post_group_planned_expense_api,
     post_group_routine_api, post_group_routine_payment_api, put_group_planned_expense_fulfil_api,
     put_group_planned_expense_review_api,
+};
+use crate::handlers::group_fund_handler::{
+    delete_fund_request_api, get_fund_requests_api, post_fund_request_api,
+    put_fund_request_fulfill_api, put_fund_request_reject_api, put_fund_request_waive_api,
+};
+use crate::handlers::group_settlement_handler::{
+    delete_group_contact_name_api, delete_group_split_payment_api, delete_group_split_share_api,
+    get_group_settlements_api, post_group_reimbursement_api, post_group_split_manual_payment_api,
+    post_group_split_payment_api, post_group_split_share_api, put_group_split_payment_review_api,
 };
 use crate::handlers::investment_handler::{
     delete_investment_api, get_investments_api, post_investment_api, put_investment_price_api,
@@ -42,6 +54,13 @@ use crate::handlers::spending_handler_v2::{
     post_spending_api_v2, post_spending_category_api_v2, put_spending_detail_checked_api_v2,
 };
 use crate::handlers::swagger_handler::{get_swagger_ui, get_swagger_yaml};
+use crate::handlers::group_target_handler::{
+    get_group_targets_api, put_group_target_api, put_group_target_setting_api,
+};
+use crate::handlers::transaction_proof_handler::{
+    delete_transaction_proof_api, get_transaction_proof_api, get_transaction_proofs_api,
+    post_transaction_proof_api,
+};
 use crate::handlers::member_transfer_handler::{
     get_member_sources_api, get_member_transfers_api, post_member_transfer_api,
 };
@@ -224,6 +243,18 @@ pub fn init(cfg: &mut web::ServiceConfig) {
                 web::put().to(put_group_status_api),
             )
             .route(
+                "/group-categories",
+                web::get().to(get_group_categories_api),
+            )
+            .route(
+                "/groups/{group_id}/categories",
+                web::post().to(post_group_category_api),
+            )
+            .route(
+                "/groups/{group_id}/categories/{category_id}",
+                web::delete().to(delete_group_category_api),
+            )
+            .route(
                 "/group-transactions",
                 web::get().to(get_group_transactions_api),
             )
@@ -287,6 +318,88 @@ pub fn init(cfg: &mut web::ServiceConfig) {
             .route(
                 "/groups/{group_id}/balance/spendings",
                 web::post().to(post_group_balance_spending_api),
+            )
+            .route("/fund-requests", web::get().to(get_fund_requests_api))
+            .route(
+                "/groups/{group_id}/fund-requests",
+                web::post().to(post_fund_request_api),
+            )
+            .route(
+                "/groups/{group_id}/fund-requests/{request_id}/fulfill",
+                web::put().to(put_fund_request_fulfill_api),
+            )
+            .route(
+                "/groups/{group_id}/fund-requests/{request_id}/reject",
+                web::put().to(put_fund_request_reject_api),
+            )
+            .route(
+                "/groups/{group_id}/fund-requests/{request_id}/waive",
+                web::put().to(put_fund_request_waive_api),
+            )
+            .route(
+                "/groups/{group_id}/fund-requests/{request_id}",
+                web::delete().to(delete_fund_request_api),
+            )
+            .route(
+                "/groups/{group_id}/settlements",
+                web::get().to(get_group_settlements_api),
+            )
+            .route(
+                "/groups/{group_id}/reimbursements",
+                web::post().to(post_group_reimbursement_api),
+            )
+            .route(
+                "/groups/{group_id}/split-shares",
+                web::post().to(post_group_split_share_api),
+            )
+            .route(
+                "/groups/{group_id}/split-shares/{share_id}",
+                web::delete().to(delete_group_split_share_api),
+            )
+            .route(
+                "/groups/{group_id}/split-shares/{share_id}/payments",
+                web::post().to(post_group_split_payment_api),
+            )
+            .route(
+                "/groups/{group_id}/split-shares/{share_id}/manual-payments",
+                web::post().to(post_group_split_manual_payment_api),
+            )
+            .route(
+                "/groups/{group_id}/split-payments/{payment_id}/review",
+                web::put().to(put_group_split_payment_review_api),
+            )
+            .route(
+                "/groups/{group_id}/split-payments/{payment_id}",
+                web::delete().to(delete_group_split_payment_api),
+            )
+            .route(
+                "/groups/{group_id}/names/{name}",
+                web::delete().to(delete_group_contact_name_api),
+            )
+            .route(
+                "/groups/{group_id}/targets",
+                web::get().to(get_group_targets_api),
+            )
+            .route(
+                "/groups/{group_id}/target",
+                web::put().to(put_group_target_api),
+            )
+            .route(
+                "/groups/{group_id}/target-setting",
+                web::put().to(put_group_target_setting_api),
+            )
+            // Proof images are base64 in the JSON body, so this resource
+            // accepts more than the default 2 MB.
+            .service(
+                web::resource("/proofs")
+                    .app_data(web::JsonConfig::default().limit(4 * 1024 * 1024))
+                    .route(web::get().to(get_transaction_proofs_api))
+                    .route(web::post().to(post_transaction_proof_api)),
+            )
+            .route("/proofs/{proof_id}", web::get().to(get_transaction_proof_api))
+            .route(
+                "/proofs/{proof_id}",
+                web::delete().to(delete_transaction_proof_api),
             ),
     );
     cfg.service(

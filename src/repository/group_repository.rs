@@ -305,6 +305,7 @@ pub fn select_group_transactions(
         "SELECT l.group_id, 'spending' AS transaction_type, s.spending_id AS transaction_id,
                 s.total_amount, COALESCE(s.description, '') AS description,
                 s.spending_category AS category, s.created_date, s.created_by,
+                COALESCE(s.source, '') AS source,
                 COALESCE((
                     SELECT st.is_active FROM spending_group_status st
                     WHERE st.group_id = l.group_id AND st.changed_at <= s.created_date
@@ -318,6 +319,7 @@ pub fn select_group_transactions(
          SELECT l.group_id, 'earning' AS transaction_type, e.earning_id AS transaction_id,
                 e.total_amount, COALESCE(e.description, '') AS description,
                 e.earning_category AS category, e.created_date, e.created_by,
+                COALESCE(e.source, '') AS source,
                 COALESCE((
                     SELECT st.is_active FROM spending_group_status st
                     WHERE st.group_id = l.group_id AND st.changed_at <= e.created_date
@@ -332,6 +334,7 @@ pub fn select_group_transactions(
                 -b.amount AS total_amount, COALESCE(b.description, '') AS description,
                 COALESCE(b.spending_category, '') AS category, b.created_date,
                 b.username AS created_by,
+                'Group balance' AS source,
                 COALESCE((
                     SELECT st.is_active FROM spending_group_status st
                     WHERE st.group_id = b.group_id AND st.changed_at <= b.created_date
@@ -351,6 +354,7 @@ pub fn select_group_transactions(
             category,
             created_date,
             created_by,
+            source,
             after_turned_off,
         ): (
             String,
@@ -360,6 +364,7 @@ pub fn select_group_transactions(
             String,
             String,
             NaiveDateTime,
+            String,
             String,
             i64,
         )| GroupTransaction {
@@ -371,6 +376,7 @@ pub fn select_group_transactions(
             category,
             created_date,
             created_by,
+            source,
             after_turned_off: after_turned_off != 0,
         },
     )?;

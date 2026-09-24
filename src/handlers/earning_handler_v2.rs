@@ -7,6 +7,7 @@ use crate::repository::earning_repository_v2::{
     delete_earning, delete_earning_category, insert_earning, insert_earning_category,
     select_all_earning_categories, select_earning_category, select_earnings,
 };
+use crate::repository::group_category_repository::resolve_group_category_name;
 use crate::repository::group_repository::link_transaction_to_group;
 use crate::repository::source_repository_v2::select_source;
 use crate::route_middleware::get_user::CreatedBy;
@@ -138,6 +139,22 @@ pub async fn post_earning_api_v2(
         }
         None => false,
     };
+    // A group transaction is filed under one of its group's categories rather
+    // than the member's own, so it bypasses the personal category check too.
+    let group_category_bypass = !settings_bypass
+        && match resolve_group_category_name(
+            &mut conn,
+            earning.group_id,
+            new_earning.earning_category_id,
+            "earning",
+            &created_by,
+        ) {
+            Some(name) => {
+                new_earning.earning_category = name;
+                true
+            }
+            None => false,
+        };
     let mut response = Response {
         status: "Success".to_string(),
         code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
@@ -148,7 +165,7 @@ pub async fn post_earning_api_v2(
     };
     if _check_source.is_ok()
         && _check_category.is_ok()
-        && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass)
+        && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass || group_category_bypass)
         && _check_source.as_ref().unwrap().len() > 0
     {
         let _result = insert_earning(&mut conn, &new_earning);

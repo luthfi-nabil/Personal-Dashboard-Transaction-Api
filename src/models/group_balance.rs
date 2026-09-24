@@ -6,8 +6,10 @@ use uuid::Uuid;
 ///
 /// Every member has their own balance inside each group, separate from their
 /// personal sources and usable only for that group's spending. It is the sum
-/// of that member's entries: `top_up` entries are positive, `spending`
-/// entries (a group transaction paid from the balance) are negative.
+/// of that member's entries minus their tagged group spendings: `top_up`
+/// entries are positive; `spending` entries (paid from the balance) and
+/// `transaction` rows (a personal spending added to the group - listed in the
+/// history, not stored as an entry) are negative. It may go negative.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GroupBalanceEntry {
     pub entry_id: Uuid,
@@ -17,7 +19,8 @@ pub struct GroupBalanceEntry {
     pub username: String,
     /// Signed: positive adds to the balance, negative spends from it.
     pub amount: f64,
-    /// `top_up` or `spending`.
+    /// `top_up`, `spending`, `transaction`, `reimburse_in`/`reimburse_out`,
+    /// `split_in`/`split_out` or `balance_return`.
     pub entry_type: String,
     pub description: String,
     pub spending_category_id: Option<Uuid>,

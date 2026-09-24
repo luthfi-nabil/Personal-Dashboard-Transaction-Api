@@ -53,6 +53,9 @@ pub struct GroupTransaction {
     pub category: String,
     pub created_date: NaiveDateTime,
     pub created_by: String,
+    /// The spender's source it was paid from (or received into), or
+    /// "Group balance" for one paid from a member's group balance.
+    pub source: String,
     /// The group was switched off when this transaction happened, so the recap
     /// counts it separately from the regular totals.
     pub after_turned_off: bool,

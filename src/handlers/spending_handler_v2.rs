@@ -6,6 +6,7 @@ use crate::models::spending::{
     SpendingCategoryV2, SpendingCreateV2, SpendingDetailCheckedInput, SpendingDetailParamQuery,
     SpendingDetailV2, SpendingParam, SpendingV2,
 };
+use crate::repository::group_category_repository::resolve_group_category_name;
 use crate::repository::group_repository::link_transaction_to_group;
 use crate::repository::source_repository_v2::select_source;
 use crate::repository::spending_repository_v2::{
@@ -202,6 +203,22 @@ pub async fn post_spending_api_v2(
         }
         None => false,
     };
+    // A group transaction is filed under one of its group's categories rather
+    // than the member's own, so it bypasses the personal category check too.
+    let group_category_bypass = !settings_bypass
+        && match resolve_group_category_name(
+            &mut conn,
+            spending.group_id,
+            new_spending.spending_category_id,
+            "spending",
+            &created_by,
+        ) {
+            Some(name) => {
+                new_spending.spending_category = name;
+                true
+            }
+            None => false,
+        };
     let mut response = Response {
         status: "Success".to_string(),
         code: crate::helper::response_code::RESPONSE_CODE_DATA_INSERTION_SUCCESS,
@@ -212,7 +229,7 @@ pub async fn post_spending_api_v2(
     };
     if _check_source.is_ok()
         && _check_category.is_ok()
-        && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass)
+        && (_check_category.as_ref().unwrap().len() > 0 || settings_bypass || group_category_bypass)
         && _check_source.as_ref().unwrap().len() > 0
     {
         let _result = insert_spending(&mut conn, &new_spending);

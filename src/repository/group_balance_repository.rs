@@ -62,7 +62,7 @@ fn entry_from_row(row: Row) -> GroupBalanceEntry {
     }
 }
 
-fn insert_entry<Q: Queryable>(conn: &mut Q, entry: &GroupBalanceEntry) -> Result<(), Box<dyn Error>> {
+pub fn insert_entry<Q: Queryable>(conn: &mut Q, entry: &GroupBalanceEntry) -> Result<(), Box<dyn Error>> {
     conn.exec_drop(
         "INSERT INTO group_balance_entry
             (entry_id, group_id, username, amount, entry_type, description,
@@ -91,6 +91,33 @@ pub fn insert_group_top_up(
     insert_entry(conn, entry)
 }
 
+/// A member's current balance in a group: their balance entries minus their
+/// tagged group spendings (every active personal spending they added to the
+/// group). Tagged spendings are not limited by the balance, so it may be
+/// negative.
+pub fn member_balance<Q: Queryable>(
+    conn: &mut Q,
+    group_id: Uuid,
+    username: &str,
+) -> Result<f64, Box<dyn Error>> {
+    let balance: Option<f64> = conn.exec_first(
+        "SELECT COALESCE((SELECT SUM(amount) FROM group_balance_entry
+                          WHERE group_id = :g1 AND username = :u1), 0)
+              - COALESCE((SELECT SUM(s.total_amount)
+                          FROM spending_group_transaction l
+                          JOIN spending s ON s.spending_id = l.transaction_id AND s.is_active = 1
+                          WHERE l.transaction_type = 'spending'
+                            AND l.group_id = :g2 AND l.created_by = :u2), 0)",
+        params! {
+            "g1" => group_id.to_string(),
+            "u1" => username,
+            "g2" => group_id.to_string(),
+            "u2" => username,
+        },
+    )?;
+    Ok(balance.unwrap_or(0.0))
+}
+
 /// Spends from a member's group balance inside the caller's DB transaction.
 ///
 /// The member's row in `spending_group_member` is locked first, so two
@@ -108,17 +135,10 @@ pub fn spend_group_balance<Q: Queryable>(
             "username" => &entry.username,
         },
     )?;
-    let balance: Option<f64> = conn.exec_first(
-        "SELECT COALESCE(SUM(amount), 0) FROM group_balance_entry
-         WHERE group_id = :group_id AND username = :username",
-        params! {
-            "group_id" => entry.group_id.to_string(),
-            "username" => &entry.username,
-        },
-    )?;
+    let balance = member_balance(conn, entry.group_id, &entry.username)?;
     // `entry.amount` is negative for a spending; a tiny epsilon keeps a
     // balance spent down to exactly zero from failing on float rounding.
-    if balance.unwrap_or(0.0) + entry.amount < -0.000_001 {
+    if balance + entry.amount < -0.000_001 {
         return Ok(false);
     }
     insert_entry(conn, entry)?;
@@ -140,7 +160,8 @@ pub fn insert_group_balance_spending(
 }
 
 /// Balances of `group_id`'s members - every member, or only `only_user`.
-/// Members with no entries yet are listed with zero.
+/// Members with no entries yet are listed with zero. Tagged group spendings
+/// count as spent, so a balance can be negative.
 pub fn select_group_balances(
     conn: &mut PooledConn,
     group_id: Uuid,
@@ -148,26 +169,33 @@ pub fn select_group_balances(
 ) -> Result<Vec<GroupMemberBalance>, Box<dyn Error>> {
     let rows = conn.exec_map(
         "SELECT m.username,
-                COALESCE(SUM(b.amount), 0),
                 COALESCE(SUM(CASE WHEN b.amount > 0 THEN b.amount ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN b.amount < 0 THEN -b.amount ELSE 0 END), 0)
+                COALESCE(SUM(CASE WHEN b.amount < 0 THEN -b.amount ELSE 0 END), 0),
+                COALESCE((
+                    SELECT SUM(s.total_amount)
+                    FROM spending_group_transaction l
+                    JOIN spending s ON s.spending_id = l.transaction_id AND s.is_active = 1
+                    WHERE l.transaction_type = 'spending'
+                      AND l.group_id = m.group_id AND l.created_by = m.username
+                ), 0)
          FROM spending_group_member m
          LEFT JOIN group_balance_entry b
                 ON b.group_id = m.group_id AND b.username = m.username
          WHERE m.group_id = :group_id
            AND (:only_user IS NULL OR m.username = :only_user2)
-         GROUP BY m.username
+         GROUP BY m.group_id, m.username
          ORDER BY m.username ASC",
         params! {
             "group_id" => group_id.to_string(),
             "only_user" => only_user,
             "only_user2" => only_user,
         },
-        |(username, balance, total_top_up, total_spent): (String, f64, f64, f64)| {
+        |(username, total_top_up, entries_spent, tagged_spent): (String, f64, f64, f64)| {
+            let total_spent = entries_spent + tagged_spent;
             GroupMemberBalance {
                 group_id,
                 username,
-                balance,
+                balance: total_top_up - total_spent,
                 total_top_up,
                 total_spent,
             }
@@ -177,22 +205,39 @@ pub fn select_group_balances(
 }
 
 /// Balance history of `group_id`, newest first - everyone's, or only
-/// `only_user`'s.
+/// `only_user`'s. Tagged group spendings are listed too, as `transaction`
+/// entries whose id is the spending's id.
 pub fn select_group_balance_entries(
     conn: &mut PooledConn,
     group_id: Uuid,
     only_user: Option<&str>,
 ) -> Result<Vec<GroupBalanceEntry>, Box<dyn Error>> {
     let rows = conn.exec_map(
-        format!(
-            "{SELECT_ENTRY}
-             WHERE group_id = :group_id AND (:only_user IS NULL OR username = :only_user2)
-             ORDER BY created_date DESC"
-        ),
+        "SELECT entry_id, group_id, username, amount, entry_type, description,
+                spending_category_id, spending_category, created_date
+         FROM (
+             SELECT entry_id, group_id, username, amount, entry_type,
+                    COALESCE(description, '') AS description,
+                    spending_category_id, spending_category, created_date
+             FROM group_balance_entry
+             WHERE group_id = :g1 AND (:u1 IS NULL OR username = :u1b)
+             UNION ALL
+             SELECT s.spending_id, l.group_id, l.created_by, -s.total_amount, 'transaction',
+                    COALESCE(s.description, ''),
+                    s.spending_category_id, s.spending_category, s.created_date
+             FROM spending_group_transaction l
+             JOIN spending s ON s.spending_id = l.transaction_id AND s.is_active = 1
+             WHERE l.transaction_type = 'spending'
+               AND l.group_id = :g2 AND (:u2 IS NULL OR l.created_by = :u2b)
+         ) movements
+         ORDER BY created_date DESC",
         params! {
-            "group_id" => group_id.to_string(),
-            "only_user" => only_user,
-            "only_user2" => only_user,
+            "g1" => group_id.to_string(),
+            "u1" => only_user,
+            "u1b" => only_user,
+            "g2" => group_id.to_string(),
+            "u2" => only_user,
+            "u2b" => only_user,
         },
         entry_from_row,
     )?;

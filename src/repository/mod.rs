@@ -6,8 +6,12 @@ pub mod consumable_repository;
 pub mod debt_repository;
 pub mod earning_repository_v2;
 pub mod group_balance_repository;
+pub mod group_category_repository;
+pub mod group_fund_repository;
 pub mod group_plan_repository;
 pub mod group_repository;
+pub mod group_settlement_repository;
+pub mod group_target_repository;
 pub mod init;
 pub mod investment_repository;
 pub mod member_transfer_repository;
@@ -16,6 +20,7 @@ pub mod planned_transaction_repository;
 pub mod routine_repository;
 pub mod source_repository_v2;
 pub mod spending_repository_v2;
+pub mod transaction_proof_repository;
 
 /// Runs `alter_sql` only when `column` is not already on `table`.
 ///

@@ -129,8 +129,28 @@ pub fn insert_member_transfer(
     sender_description: &str,
     recipient_description: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let created = transfer.created_date.to_string();
     let mut tx = conn.start_transaction(TxOpts::default())?;
+    write_member_transfer(
+        &mut tx,
+        transfer,
+        category,
+        sender_description,
+        recipient_description,
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// The three rows of [insert_member_transfer], inside a transaction the
+/// caller owns (a fund request writes its own row in the same one).
+pub fn write_member_transfer<Q: Queryable>(
+    tx: &mut Q,
+    transfer: &MemberTransfer,
+    category: &TransferCategory,
+    sender_description: &str,
+    recipient_description: &str,
+) -> Result<(), Box<dyn Error>> {
+    let created = transfer.created_date.to_string();
     tx.exec_drop(
         "INSERT INTO spending
             (spending_id, total_amount, description, spending_category_id, spending_category,
@@ -186,6 +206,5 @@ pub fn insert_member_transfer(
             "created" => &created,
         },
     )?;
-    tx.commit()?;
     Ok(())
 }
